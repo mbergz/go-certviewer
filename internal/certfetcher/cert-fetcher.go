@@ -4,10 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"strings"
 )
 
 func Get(url string) ([]*x509.Certificate, error) {
-	validate(url)
+	formattedUrl := formatUrl(url)
 
 	var certs []*x509.Certificate
 
@@ -22,7 +23,7 @@ func Get(url string) ([]*x509.Certificate, error) {
 		return nil
 	}
 
-	conn, err := tls.Dial("tcp", url, &tls.Config{
+	conn, err := tls.Dial("tcp", formattedUrl, &tls.Config{
 		InsecureSkipVerify:    true,
 		VerifyPeerCertificate: verifyFn,
 	})
@@ -34,6 +35,9 @@ func Get(url string) ([]*x509.Certificate, error) {
 	return certs, nil
 }
 
-func validate(url string) {
-	//panic("unimplemented")
+func formatUrl(url string) string {
+	if !strings.HasSuffix(url, ":443") {
+		return url + ":443"
+	}
+	return url
 }
