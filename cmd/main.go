@@ -8,6 +8,7 @@ import (
 
 	"go-certviewer/internal/certfetcher"
 	"go-certviewer/internal/certreader"
+	"go-certviewer/internal/tui"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 	for i, cert := range certs {
 		fmt.Printf("[%d]: subj='%s' dns=%s. Valid from='%s' to='%s'\n", i, cert.Subject, cert.DNSNames, cert.NotBefore, cert.NotAfter)
 	}
+	tui.Launch(certs)
 }
 
 func getCertificates(urlFlag string, inputFileFlag string) ([]*x509.Certificate, error) {
