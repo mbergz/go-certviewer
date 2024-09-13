@@ -12,6 +12,8 @@ import (
 var (
 	app             *tview.Application
 	subjectTable    *tview.Table
+	issuerTable     *tview.Table
+	extensionsTable *tview.Table
 	validityTable   *tview.Table
 	validtyTextView *tview.TextView
 )
@@ -21,6 +23,12 @@ func Launch(certs []*x509.Certificate) {
 
 	subjectTable = tview.NewTable()
 	subjectTable.SetBorder(true).SetTitle("Subject").SetBorderPadding(1, 1, 0, 0)
+
+	issuerTable = tview.NewTable()
+	issuerTable.SetBorder(true).SetTitle("Issuer").SetBorderPadding(1, 1, 0, 0)
+
+	extensionsTable = tview.NewTable()
+	extensionsTable.SetBorder(true).SetTitle("X.509 v3 extensions").SetBorderPadding(1, 1, 0, 0)
 
 	validityTable = tview.NewTable()
 	validtyFlex := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -33,9 +41,12 @@ func Launch(certs []*x509.Certificate) {
 
 	mainFlex := tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(subjectTable, 0, 2, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+				AddItem(subjectTable, 0, 4, false).
+				AddItem(issuerTable, 0, 3, false), 0, 2, false).
 			AddItem(validtyFlex, 0, 1, false).
-			AddItem(tview.NewBox().SetBorder(true).SetTitle("Signature"), 10, 1, false), 0, 2, false).
+			AddItem(extensionsTable, 0, 2, false).
+			AddItem(tview.NewBox().SetBorder(true).SetTitle("Signature"), 0, 2, false), 0, 2, false).
 		AddItem(certChainList, 30, 1, true)
 
 	if err := app.SetRoot(mainFlex, true).SetFocus(mainFlex).Run(); err != nil {
@@ -44,6 +55,7 @@ func Launch(certs []*x509.Certificate) {
 }
 
 func populateSubjectArea(cert *x509.Certificate) {
+	subjectTable.Clear()
 	row := 0
 	appendToTable(subjectTable, []string{cert.Subject.CommonName}, "Common name (CN)", &row)
 	appendToTable(subjectTable, cert.Subject.Country, "Country (C)", &row)
@@ -51,6 +63,31 @@ func populateSubjectArea(cert *x509.Certificate) {
 	appendToTable(subjectTable, cert.Subject.OrganizationalUnit, "Organization Unit (OU)", &row)
 	appendToTable(subjectTable, cert.Subject.Locality, "Locality (L)", &row)
 	appendToTable(subjectTable, cert.Subject.Province, "State or province name (S)", &row)
+}
+
+func populateIssuerArea(cert *x509.Certificate) {
+	issuerTable.Clear()
+	row := 0
+	appendToTable(issuerTable, []string{cert.Issuer.CommonName}, "Common name (CN)", &row)
+	appendToTable(issuerTable, cert.Issuer.Country, "Country (C)", &row)
+	appendToTable(issuerTable, cert.Issuer.Organization, "Organization (O)", &row)
+	appendToTable(issuerTable, cert.Issuer.OrganizationalUnit, "Organization Unit (OU)", &row)
+	appendToTable(issuerTable, cert.Issuer.Locality, "Locality (L)", &row)
+	appendToTable(issuerTable, cert.Issuer.Province, "State or province name (S)", &row)
+}
+
+func populateExtensionsArea(cert *x509.Certificate) {
+	extensionsTable.Clear()
+	row := 0
+	// Fix own area for SAN
+	appendToTable(extensionsTable, cert.DNSNames, "SAN - DNS names", &row)
+	if len(cert.IPAddresses) > 0 {
+		ipAsString := make([]string, len(cert.IPAddresses))
+		for i, ip := range cert.IPAddresses {
+			ipAsString[i] = ip.String()
+		}
+		appendToTable(extensionsTable, ipAsString, "SAN - IP addresses", &row)
+	}
 }
 
 func populateValidityArea(cert *x509.Certificate) {
@@ -80,15 +117,16 @@ func populateValidityArea(cert *x509.Certificate) {
 
 func onSelectedCert(cert *x509.Certificate) func() {
 	return func() {
-		subjectTable.Clear()
 		populateSubjectArea(cert)
 		populateValidityArea(cert)
+		populateIssuerArea(cert)
+		populateExtensionsArea(cert)
 	}
 }
 
 func appendToTable(table *tview.Table, value []string, displayName string, rowCount *int) {
 	if len(value) > 0 {
-		table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-30s", displayName)))
+		table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)))
 		table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")))
 		*rowCount++
 	}
