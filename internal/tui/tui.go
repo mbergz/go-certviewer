@@ -6,20 +6,32 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 var (
 	app             *tview.Application
+	mainFlex        *tview.Flex
 	subjectTable    *tview.Table
 	issuerTable     *tview.Table
 	extensionsTable *tview.Table
 	validityTable   *tview.Table
 	validtyTextView *tview.TextView
+	mouseEnabled    bool = true
 )
 
 func Launch(certs []*x509.Certificate) {
 	app = tview.NewApplication()
+	app.EnableMouse(mouseEnabled)
+
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Rune() == 'm' {
+			mouseEnabled = !mouseEnabled
+			app.EnableMouse(mouseEnabled)
+		}
+		return event
+	})
 
 	subjectTable = tview.NewTable()
 	subjectTable.SetBorder(true).SetTitle("Subject").SetBorderPadding(1, 1, 0, 0)
@@ -39,7 +51,7 @@ func Launch(certs []*x509.Certificate) {
 
 	certChainList := createCertChainList(certs)
 
-	mainFlex := tview.NewFlex().
+	mainFlex = tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(subjectTable, 0, 4, false).
@@ -126,8 +138,58 @@ func onSelectedCert(cert *x509.Certificate) func() {
 
 func appendToTable(table *tview.Table, value []string, displayName string, rowCount *int) {
 	if len(value) > 0 {
-		table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)))
-		table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")))
+		table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)).SetSelectable(true).SetTransparency(true))
+		table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")).SetSelectable(true).SetClickedFunc(func() bool {
+			displayText := strings.Join(value, ",")
+
+			darkGray := tcell.NewRGBColor(40, 40, 40)
+			fullTextView := tview.NewTextView()
+			fullTextView.SetText(displayText)
+			fullTextView.SetBackgroundColor(darkGray)
+
+			okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
+				app.SetRoot(mainFlex, true)
+			})
+			okBtn.SetBackgroundColor(darkGray) // Doesn't work
+
+			okBtnFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+				AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false).
+				AddItem(okBtn, 8, 1, false).
+				AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false)
+
+			fullTextViewWrapper := tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(fullTextView, 0, 3, false).
+				AddItem(okBtnFlex, 1, 1, false)
+			fullTextViewWrapper.SetBorder(true)
+			fullTextViewWrapper.SetBackgroundColor(darkGray)
+
+			vertFlexSize := 1
+			if len(strings.Join(value, ",")) > 200 {
+				vertFlexSize = 2
+			}
+			vertFlex := tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(nil, 0, 2, false).
+				AddItem(fullTextViewWrapper, 0, vertFlexSize, false).
+				AddItem(nil, 0, 2, false)
+
+			modalFlex := tview.NewFlex().
+				AddItem(nil, 0, 1, false).
+				AddItem(vertFlex, 0, 2, true).
+				AddItem(nil, 0, 1, false)
+
+			modalFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+				if event.Key() == tcell.KeyESC {
+					app.SetRoot(mainFlex, true)
+				}
+				return event
+			})
+
+			pages := tview.NewPages().
+				AddPage("mainFlex", mainFlex, false, true).
+				AddPage("modal", modalFlex, true, true)
+			app.SetRoot(pages, true)
+			return true
+		}))
 		*rowCount++
 	}
 }
