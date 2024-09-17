@@ -2,10 +2,12 @@ package tui
 
 import (
 	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -16,6 +18,8 @@ var (
 	subjectTable    *tview.Table
 	issuerTable     *tview.Table
 	extensionsTable *tview.Table
+	publicKeyTable  *tview.Table
+	signatureTable  *tview.Table
 	validityTable   *tview.Table
 	validtyTextView *tview.TextView
 	mouseEnabled    bool = true
@@ -42,6 +46,12 @@ func Launch(certs []*x509.Certificate) {
 	extensionsTable = tview.NewTable()
 	extensionsTable.SetBorder(true).SetTitle("X.509 v3 extensions").SetBorderPadding(1, 1, 0, 0)
 
+	publicKeyTable = tview.NewTable()
+	publicKeyTable.SetBorder(true).SetTitle("Public key")
+
+	signatureTable = tview.NewTable()
+	signatureTable.SetBorder(true).SetTitle("Signature")
+
 	validityTable = tview.NewTable()
 	validtyFlex := tview.NewFlex().SetDirection(tview.FlexRow)
 	validtyFlex.SetBorder(true).SetTitle("Validity")
@@ -58,7 +68,8 @@ func Launch(certs []*x509.Certificate) {
 				AddItem(issuerTable, 0, 3, false), 0, 2, false).
 			AddItem(validtyFlex, 0, 1, false).
 			AddItem(extensionsTable, 0, 2, false).
-			AddItem(tview.NewBox().SetBorder(true).SetTitle("Signature"), 0, 2, false), 0, 2, false).
+			AddItem(publicKeyTable, 0, 1, false).
+			AddItem(signatureTable, 0, 1, false), 0, 2, false).
 		AddItem(certChainList, 30, 1, true)
 
 	if err := app.SetRoot(mainFlex, true).SetFocus(mainFlex).Run(); err != nil {
@@ -91,15 +102,52 @@ func populateIssuerArea(cert *x509.Certificate) {
 func populateExtensionsArea(cert *x509.Certificate) {
 	extensionsTable.Clear()
 	row := 0
-	// Fix own area for SAN
-	appendToTable(extensionsTable, cert.DNSNames, "SAN - DNS names", &row)
+
+	if len(cert.DNSNames) > 0 || len(cert.IPAddresses) > 0 || len(cert.EmailAddresses) > 0 || len(cert.URIs) > 0 {
+		appendToTableKeyOnly(extensionsTable, "Subject Alternative Name (SAN)", &row)
+	}
+
+	appendToTable(extensionsTable, cert.DNSNames, "    DNS names", &row)
 	if len(cert.IPAddresses) > 0 {
 		ipAsString := make([]string, len(cert.IPAddresses))
 		for i, ip := range cert.IPAddresses {
 			ipAsString[i] = ip.String()
 		}
-		appendToTable(extensionsTable, ipAsString, "SAN - IP addresses", &row)
+		appendToTable(extensionsTable, ipAsString, "    IP addresses", &row)
 	}
+	appendToTable(extensionsTable, cert.EmailAddresses, "    Email addresses", &row)
+	if len(cert.URIs) > 0 {
+		urisAsString := make([]string, len(cert.URIs))
+		for i, ip := range cert.URIs {
+			urisAsString[i] = ip.String()
+		}
+		appendToTable(extensionsTable, urisAsString, "    URI's", &row)
+	}
+
+	if len(cert.OCSPServer) > 0 || len(cert.IssuingCertificateURL) > 0 {
+		appendToTableKeyOnly(extensionsTable, "Authority Information Access (AIA)", &row)
+	}
+	appendToTable(extensionsTable, cert.OCSPServer, "    OCSP", &row)
+	appendToTable(extensionsTable, cert.IssuingCertificateURL, "    Issuer URL", &row)
+}
+
+func populatePublicKeyArea(cert *x509.Certificate) {
+	publicKeyTable.Clear()
+	row := 0
+
+	appendToTable(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", &row)
+	/* TODO
+	publicKeyDer, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	appendToTable(publicKeyTable, []string{hex.EncodeToString(publicKeyDer)}, "Value", &row)
+	*/
+}
+
+func populateSignatureArea(cert *x509.Certificate) {
+	signatureTable.Clear()
+	row := 0
+
+	appendToTable(signatureTable, []string{cert.SignatureAlgorithm.String()}, "Algorithm", &row)
+	appendToTable(signatureTable, []string{hex.EncodeToString(cert.Signature)}, "Value", &row)
 }
 
 func populateValidityArea(cert *x509.Certificate) {
@@ -133,7 +181,14 @@ func onSelectedCert(cert *x509.Certificate) func() {
 		populateValidityArea(cert)
 		populateIssuerArea(cert)
 		populateExtensionsArea(cert)
+		populatePublicKeyArea(cert)
+		populateSignatureArea(cert)
 	}
+}
+
+func appendToTableKeyOnly(table *tview.Table, displayName string, rowCount *int) {
+	table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)).SetSelectable(true).SetTransparency(true))
+	*rowCount++
 }
 
 func appendToTable(table *tview.Table, value []string, displayName string, rowCount *int) {
@@ -146,6 +201,14 @@ func appendToTable(table *tview.Table, value []string, displayName string, rowCo
 			fullTextView := tview.NewTextView()
 			fullTextView.SetText(displayText)
 			fullTextView.SetBackgroundColor(darkGray)
+
+			fullTextView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+				if action == tview.MouseRightClick {
+					content := fullTextView.GetText(true)
+					clipboard.WriteAll(content)
+				}
+				return action, event
+			})
 
 			okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
 				app.SetRoot(mainFlex, true)
