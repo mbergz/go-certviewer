@@ -1,9 +1,13 @@
 package tui
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -136,10 +140,21 @@ func populatePublicKeyArea(cert *x509.Certificate) {
 	row := 0
 
 	appendToTable(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", &row)
-	/* TODO
+
+	var keySize int
+	switch pubKey := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		keySize = pubKey.N.BitLen()
+	case *ecdsa.PublicKey:
+		keySize = pubKey.Curve.Params().BitSize
+	case ed25519.PublicKey:
+		// Ed25519 is fixed at 256
+		keySize = 256
+	}
+	appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+
 	publicKeyDer, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	appendToTable(publicKeyTable, []string{hex.EncodeToString(publicKeyDer)}, "Value", &row)
-	*/
+	appendToTable(publicKeyTable, []string{hex.EncodeToString(publicKeyDer)}, "Raw DER Value", &row)
 }
 
 func populateSignatureArea(cert *x509.Certificate) {
@@ -213,7 +228,6 @@ func appendToTable(table *tview.Table, value []string, displayName string, rowCo
 			okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
 				app.SetRoot(mainFlex, true)
 			})
-			okBtn.SetBackgroundColor(darkGray) // Doesn't work
 
 			okBtnFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false).
