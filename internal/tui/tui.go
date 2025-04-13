@@ -133,6 +133,9 @@ func populateExtensionsArea(cert *x509.Certificate) {
 	}
 	appendToTable(extensionsTable, cert.OCSPServer, "    OCSP", &row)
 	appendToTable(extensionsTable, cert.IssuingCertificateURL, "    Issuer URL", &row)
+
+	appendToTable(extensionsTable, []string{formatToHex(cert.SubjectKeyId)}, "Subject Key Identifier (SKI)", &row)
+	appendToTable(extensionsTable, []string{formatToHex(cert.AuthorityKeyId)}, "Authority Key Identifier (AKI)", &row)
 }
 
 func populatePublicKeyArea(cert *x509.Certificate) {
@@ -154,7 +157,7 @@ func populatePublicKeyArea(cert *x509.Certificate) {
 	appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
 
 	publicKeyDer, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	appendToTable(publicKeyTable, []string{hex.EncodeToString(publicKeyDer)}, "Raw DER Value", &row)
+	appendToTable(publicKeyTable, []string{formatToHex(publicKeyDer)}, "Raw DER Value", &row)
 }
 
 func populateSignatureArea(cert *x509.Certificate) {
@@ -162,7 +165,7 @@ func populateSignatureArea(cert *x509.Certificate) {
 	row := 0
 
 	appendToTable(signatureTable, []string{cert.SignatureAlgorithm.String()}, "Algorithm", &row)
-	appendToTable(signatureTable, []string{hex.EncodeToString(cert.Signature)}, "Value", &row)
+	appendToTable(signatureTable, []string{formatToHex(cert.Signature)}, "Value", &row)
 }
 
 func populateValidityArea(cert *x509.Certificate) {
@@ -281,4 +284,16 @@ func createCertChainList(certs []*x509.Certificate) *tview.List {
 	}
 	onSelectedCert(certs[0])()
 	return certChainList
+}
+
+func formatToHex(input []byte) string {
+	var builder strings.Builder
+
+	for i, r := range strings.ToUpper(hex.EncodeToString(input)) {
+		builder.WriteRune(r)
+		if i%2 == 1 {
+			builder.WriteRune(' ')
+		}
+	}
+	return builder.String()
 }
