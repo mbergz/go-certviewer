@@ -144,20 +144,26 @@ func populatePublicKeyArea(cert *x509.Certificate) {
 
 	appendToTable(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", &row)
 
-	var keySize int
 	switch pubKey := cert.PublicKey.(type) {
 	case *rsa.PublicKey:
-		keySize = pubKey.N.BitLen()
+		keySize := pubKey.N.BitLen()
+		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+
+		appendToTable(publicKeyTable, []string{formatToHex(pubKey.N.Bytes())}, "Modulus", &row)
+		appendToTable(publicKeyTable, []string{formatHexStr(fmt.Sprintf("%x", pubKey.E))}, "Exponent", &row)
 	case *ecdsa.PublicKey:
-		keySize = pubKey.Curve.Params().BitSize
+		keySize := pubKey.Curve.Params().BitSize
+		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+
+		pubKeyValue := "04 " + formatToHex(pubKey.X.Bytes()) + formatToHex(pubKey.Y.Bytes()) // Add 04 for uncompressed point identifier
+		appendToTable(publicKeyTable, []string{pubKeyValue}, "Value", &row)
+		appendToTable(publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", &row)
 	case ed25519.PublicKey:
 		// Ed25519 is fixed at 256
-		keySize = 256
+		keySize := 256
+		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+		appendToTable(publicKeyTable, []string{formatToHex(pubKey)}, "Value", &row)
 	}
-	appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
-
-	publicKeyDer, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	appendToTable(publicKeyTable, []string{formatToHex(publicKeyDer)}, "Raw DER Value", &row)
 }
 
 func populateSignatureArea(cert *x509.Certificate) {
@@ -287,9 +293,17 @@ func createCertChainList(certs []*x509.Certificate) *tview.List {
 }
 
 func formatToHex(input []byte) string {
+	return formatHexStr(hex.EncodeToString(input))
+}
+
+func formatHexStr(hexInput string) string {
 	var builder strings.Builder
 
-	for i, r := range strings.ToUpper(hex.EncodeToString(input)) {
+	if len(hexInput)%2 == 1 {
+		hexInput = "0" + hexInput
+	}
+
+	for i, r := range strings.ToUpper(hexInput) {
 		builder.WriteRune(r)
 		if i%2 == 1 {
 			builder.WriteRune(' ')
