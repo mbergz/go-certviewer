@@ -4,21 +4,23 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"go-certviewer/internal/model"
 	"strings"
 )
 
-func Get(url string) ([]*x509.Certificate, error) {
+func Get(url string) (model.CertificateCollection, error) {
 	formattedUrl := formatUrl(url)
 
-	var certs []*x509.Certificate
+	var certChain []model.CertificateEntry
 
 	verifyFn := func(rawCerts [][]byte, verfiedChains [][]*x509.Certificate) error {
-		for _, cert := range rawCerts {
+		for i, cert := range rawCerts {
 			x509Cert, err := x509.ParseCertificate(cert)
 			if err != nil {
 				return errors.New("Could not parse certificate from server: " + err.Error())
 			}
-			certs = append(certs, x509Cert)
+			certChain = append(certChain, model.CertificateEntry{Index: i + 1, Cert: x509Cert})
 		}
 		return nil
 	}
@@ -32,7 +34,11 @@ func Get(url string) ([]*x509.Certificate, error) {
 	}
 	defer conn.Close()
 
-	return certs, nil
+	for _, ch := range certChain {
+		fmt.Printf("CertChain: idx:%d, subjectDN:%s\n", ch.Index, ch.Cert.Subject.String())
+	}
+
+	return model.CertificateCollection{Chains: [][]model.CertificateEntry{certChain}}, nil
 }
 
 func formatUrl(url string) string {

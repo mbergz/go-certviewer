@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
+	"go-certviewer/internal/model"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ var (
 	mouseEnabled    bool = true
 )
 
-func Launch(certs []*x509.Certificate) {
+func Launch(certCollection model.CertificateCollection) {
 	app = tview.NewApplication()
 	app.EnableMouse(mouseEnabled)
 
@@ -63,7 +64,7 @@ func Launch(certs []*x509.Certificate) {
 	validtyTextView = tview.NewTextView().SetTextAlign(tview.AlignCenter).SetDynamicColors(true)
 	validtyFlex.AddItem(validityTable, 0, 2, false).AddItem(validtyTextView, 0, 1, false)
 
-	certChainList := createCertChainList(certs)
+	certInfoArea := createCertInfoArea(certCollection)
 
 	mainFlex = tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
@@ -73,12 +74,27 @@ func Launch(certs []*x509.Certificate) {
 			AddItem(validtyFlex, 0, 1, false).
 			AddItem(extensionsTable, 0, 2, false).
 			AddItem(publicKeyTable, 0, 1, false).
-			AddItem(signatureTable, 0, 1, false), 0, 2, false).
-		AddItem(certChainList, 30, 1, true)
+			AddItem(signatureTable, 0, 1, false), 0, 4, false).
+		AddItem(certInfoArea, 0, 1, true)
 
 	if err := app.SetRoot(mainFlex, true).SetFocus(mainFlex).Run(); err != nil {
 		panic(err)
 	}
+}
+
+func createCertInfoArea(certCollection model.CertificateCollection) tview.Primitive {
+	certChainList := createCertChainList(certCollection)
+	var allCerts *tview.List
+	if len(certCollection.All) > 0 {
+		allCerts = createAllCertsList(certCollection)
+	}
+
+	if allCerts != nil {
+		return tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(certChainList, 0, 1, true).
+			AddItem(allCerts, 0, 1, false)
+	}
+	return certChainList
 }
 
 func populateSubjectArea(cert *x509.Certificate) {
@@ -280,16 +296,38 @@ func appendToTable(table *tview.Table, value []string, displayName string, rowCo
 	}
 }
 
-func createCertChainList(certs []*x509.Certificate) *tview.List {
+func createCertChainList(certCollection model.CertificateCollection) *tview.List {
 	certChainList := tview.NewList()
-	certChainList.SetBorder(true).SetTitle("Certificate chain")
-
-	for i, cert := range certs {
-		text := fmt.Sprintf("%d: CN=%s", i+1, cert.Subject.CommonName)
-		certChainList.AddItem(text, "", 0, onSelectedCert(cert))
+	title := "Certificate chain"
+	if len(certCollection.Chains) > 1 {
+		title += "s"
 	}
-	onSelectedCert(certs[0])()
+	certChainList.SetBorder(true).SetTitle(title)
+
+	for i, chain := range certCollection.Chains {
+		for _, cert := range chain {
+			text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
+			certChainList.AddItem(text, "", 0, onSelectedCert(cert.Cert))
+		}
+		if i != len(certCollection.Chains)-1 {
+			certChainList.AddItem("-----Next chain------", "", 0, nil)
+		}
+	}
+
+	onSelectedCert(certCollection.Chains[0][0].Cert)()
 	return certChainList
+}
+
+func createAllCertsList(certCollection model.CertificateCollection) *tview.List {
+	allCertsList := tview.NewList().SetSelectedFocusOnly(true)
+	allCertsList.SetBorder(true).SetTitle("PEM certificates")
+
+	for _, cert := range certCollection.All {
+		text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
+		allCertsList.AddItem(text, "", 0, onSelectedCert(cert.Cert))
+	}
+
+	return allCertsList
 }
 
 func formatToHex(input []byte) string {
