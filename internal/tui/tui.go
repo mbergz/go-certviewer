@@ -71,8 +71,8 @@ func Launch(certCollection model.CertificateCollection) {
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(subjectTable, 0, 4, false).
 				AddItem(issuerTable, 0, 3, false), 0, 2, false).
-			AddItem(validtyFlex, 0, 1, false).
-			AddItem(extensionsTable, 0, 2, false).
+			AddItem(validtyFlex, 0, 2, false).
+			AddItem(extensionsTable, 0, 3, false).
 			AddItem(publicKeyTable, 0, 1, false).
 			AddItem(signatureTable, 0, 1, false), 0, 4, false).
 		AddItem(certInfoArea, 0, 1, true)
