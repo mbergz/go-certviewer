@@ -58,6 +58,7 @@ func Launch(certCollection model.CertificateCollection) {
 	signatureTable.SetBorder(true).SetTitle("Signature")
 
 	validityTable = tview.NewTable()
+	validityTable.SetBorderPadding(1, 1, 0, 0)
 	validtyFlex := tview.NewFlex().SetDirection(tview.FlexRow)
 	validtyFlex.SetBorder(true).SetTitle("Validity")
 
