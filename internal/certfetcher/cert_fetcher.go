@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"go-certviewer/internal/model"
+	"log"
 	"strings"
 )
 
@@ -35,7 +35,7 @@ func Get(url string) (model.CertificateCollection, error) {
 	defer conn.Close()
 
 	for _, ch := range certChain {
-		fmt.Printf("CertChain: idx:%d, subjectDN:%s\n", ch.Index, ch.Cert.Subject.String())
+		log.Printf("CertChain: idx:%d, subjectDN:%s\n", ch.Index, ch.Cert.Subject.String())
 	}
 
 	return model.CertificateCollection{Chains: [][]model.CertificateEntry{certChain}}, nil

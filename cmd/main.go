@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
+	"log"
 
 	"go-certviewer/internal/certfetcher"
 	"go-certviewer/internal/certreader"
@@ -26,7 +26,7 @@ func main() {
 
 func getCertificates(urlFlag string, inputFileFlag string) (model.CertificateCollection, error) {
 	if len(urlFlag) > 0 {
-		fmt.Println("Fetching certificate from url ", urlFlag)
+		log.Println("Fetching certificate from url ", urlFlag)
 		certs, err := certfetcher.Get(urlFlag)
 		if err != nil {
 			return model.CertificateCollection{}, err
@@ -34,7 +34,7 @@ func getCertificates(urlFlag string, inputFileFlag string) (model.CertificateCol
 		return certs, nil
 	}
 	if len(inputFileFlag) > 0 {
-		fmt.Println("Reading from file")
+		log.Println("Reading from file")
 		certCollection, err := certreader.Get(inputFileFlag)
 		if err != nil {
 			return model.CertificateCollection{}, err

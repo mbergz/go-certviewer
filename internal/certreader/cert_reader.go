@@ -3,13 +3,13 @@ package certreader
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"go-certviewer/internal/model"
+	"log"
 	"os"
 )
 
 func Get(inputFile string) (model.CertificateCollection, error) {
-	fmt.Println(inputFile)
+	log.Println(inputFile)
 
 	file, err := os.ReadFile(inputFile)
 	if err != nil {
@@ -62,7 +62,7 @@ func getCertificateChains(allCerts []model.CertificateEntry) [][]model.Certifica
 		}
 
 		chain := []model.CertificateEntry{{Index: cert.Index, Cert: cert.Cert}}
-		fmt.Printf("Found leaf cert: SubjectDN:%s, IssuerDN:%s\n", subjectDN, issuerDn)
+		log.Printf("Found leaf cert: SubjectDN:%s, IssuerDN:%s\n", subjectDN, issuerDn)
 
 		for {
 			parentCert, ok := subjectMap[issuerDn]
@@ -76,15 +76,15 @@ func getCertificateChains(allCerts []model.CertificateEntry) [][]model.Certifica
 			}
 		}
 
-		fmt.Printf("Built chain for leaf cert SubjectDN:%s, length of chain=%d\n", subjectDN, len(chain))
+		log.Printf("Built chain for leaf cert SubjectDN:%s, length of chain=%d\n", subjectDN, len(chain))
 		for _, cc := range chain {
-			fmt.Printf("Chain SubjectDN:%s has idx:%d\n", cc.Cert.Subject.String(), cc.Index)
+			log.Printf("Chain SubjectDN:%s has idx:%d\n", cc.Cert.Subject.String(), cc.Index)
 		}
 		result = append(result, chain)
 
 	}
 
-	fmt.Println()
+	log.Println()
 
 	return result
 }
