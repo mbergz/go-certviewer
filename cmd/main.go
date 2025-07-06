@@ -18,7 +18,7 @@ func main() {
 
 	certCollection, err := getCertificates(*urlFlag, *inputFileFlag)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	tui.Launch(certCollection)

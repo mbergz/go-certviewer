@@ -3,30 +3,42 @@ package certreader
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"go-certviewer/internal/model"
 	"log"
 	"os"
 )
 
 func Get(inputFile string) (model.CertificateCollection, error) {
-	log.Println(inputFile)
-
 	file, err := os.ReadFile(inputFile)
 	if err != nil {
-		return model.CertificateCollection{}, err
+		return model.CertificateCollection{}, fmt.Errorf("failed to read file %s: %w", inputFile, err)
 	}
 
 	block, rest := pem.Decode(file)
 	if block != nil {
-		return parsePemCertificates(block, rest), nil
-	} else {
-		return parseDerCertificate(rest), nil
+		certSet, err := parsePemCertificates(block, rest)
+		if err != nil {
+			return model.CertificateCollection{},
+				fmt.Errorf("failed to parse pem certificates from %s: %w", inputFile, err)
+		}
+		return certSet, nil
 	}
+
+	certs, err := parseDerCertificate(rest)
+	if err != nil {
+		return model.CertificateCollection{},
+			fmt.Errorf("failed to parse der certificate from %s. Verify input file format: %w", inputFile, err)
+	}
+	return certs, nil
 }
 
-func parsePemCertificates(block *pem.Block, rest []byte) model.CertificateCollection {
+func parsePemCertificates(block *pem.Block, rest []byte) (model.CertificateCollection, error) {
 	certs := []model.CertificateEntry{}
-	cert := parseCertificate(block.Bytes)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return model.CertificateCollection{}, fmt.Errorf("could not parse certificate: %w", err)
+	}
 	certs = append(certs, model.CertificateEntry{Index: 1, Cert: cert})
 	if rest != nil {
 		chain := appendCertificateToChain(rest)
@@ -34,7 +46,7 @@ func parsePemCertificates(block *pem.Block, rest []byte) model.CertificateCollec
 	}
 	chains := getCertificateChains(certs)
 	certSet := model.CertificateCollection{All: certs, Chains: chains}
-	return certSet
+	return certSet, nil
 }
 
 func getCertificateChains(allCerts []model.CertificateEntry) [][]model.CertificateEntry {
@@ -89,11 +101,14 @@ func getCertificateChains(allCerts []model.CertificateEntry) [][]model.Certifica
 	return result
 }
 
-func parseDerCertificate(rest []byte) model.CertificateCollection {
-	cert := parseCertificate(rest)
+func parseDerCertificate(rest []byte) (model.CertificateCollection, error) {
+	cert, err := x509.ParseCertificate(rest)
+	if err != nil {
+		return model.CertificateCollection{}, fmt.Errorf("could not parse der certificate: %w", err)
+	}
 	certEntry := model.CertificateEntry{Index: 1, Cert: cert}
 	certSet := model.CertificateCollection{All: []model.CertificateEntry{certEntry}}
-	return certSet
+	return certSet, nil
 }
 
 func appendCertificateToChain(data []byte) []model.CertificateEntry {
@@ -104,7 +119,10 @@ func appendCertificateToChain(data []byte) []model.CertificateEntry {
 		if block == nil {
 			break
 		}
-		cert := parseCertificate(block.Bytes)
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			log.Panicf("Could not parse certificate in chain: %v", err)
+		}
 		res = append(res, model.CertificateEntry{Index: idx, Cert: cert})
 		if rest == nil {
 			break
@@ -113,12 +131,4 @@ func appendCertificateToChain(data []byte) []model.CertificateEntry {
 		idx++
 	}
 	return res
-}
-
-func parseCertificate(der []byte) *x509.Certificate {
-	cert, err := x509.ParseCertificate(der)
-	if err != nil {
-		panic(err)
-	}
-	return cert
 }
