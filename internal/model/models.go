@@ -8,6 +8,7 @@ type CertificateCollection struct {
 }
 
 type CertificateEntry struct {
-	Index int
-	Cert  *x509.Certificate
+	Index    int
+	Cert     *x509.Certificate
+	FileName string
 }

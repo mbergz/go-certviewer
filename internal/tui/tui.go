@@ -323,12 +323,41 @@ func createAllCertsList(certCollection model.CertificateCollection) *tview.List 
 	allCertsList := tview.NewList().SetSelectedFocusOnly(true)
 	allCertsList.SetBorder(true).SetTitle("All certificates")
 
+	// Only render grouped by filename if all certs have a filename set
+	haveFileNames := true
 	for _, cert := range certCollection.All {
-		text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
-		allCertsList.AddItem(text, "", 0, onSelectedCert(cert.Cert))
+		if cert.FileName == "" {
+			haveFileNames = false
+			break
+		}
+	}
+
+	if haveFileNames {
+		fileNameCertsMap := make(map[string][]model.CertificateEntry)
+		for _, cert := range certCollection.All {
+			if found, ok := fileNameCertsMap[cert.FileName]; ok {
+				fileNameCertsMap[cert.FileName] = append(found, cert)
+			} else {
+				fileNameCertsMap[cert.FileName] = []model.CertificateEntry{cert}
+			}
+		}
+
+		for key, value := range fileNameCertsMap {
+			allCertsList.AddItem(fmt.Sprintf("-- %s --", key), "", 0, nil)
+			addCertsToAllList(allCertsList, value)
+		}
+	} else {
+		addCertsToAllList(allCertsList, certCollection.All)
 	}
 
 	return allCertsList
+}
+
+func addCertsToAllList(list *tview.List, certs []model.CertificateEntry) {
+	for _, cert := range certs {
+		text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
+		list.AddItem(text, "", 0, onSelectedCert(cert.Cert))
+	}
 }
 
 func formatToHex(input []byte) string {

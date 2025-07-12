@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"flag"
+	"io"
 	"log"
+	"os"
 
 	"go-certviewer/internal/certfetcher"
 	"go-certviewer/internal/certreader"
@@ -12,11 +14,35 @@ import (
 )
 
 func main() {
+	// Setup log to also append to file
+	f, err := os.OpenFile("app.log", os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	log.SetOutput(io.MultiWriter(f, os.Stderr))
+
 	urlFlag := flag.String("url", "", "Url of website to fetch certificate from")
 	inputFileFlag := flag.String("i", "", "Input certificate file in .pem or .crt format")
+	inputDirFlag := flag.String("d", "", "Input directory with certificates in .pem or .crt format")
 	flag.Parse()
 
-	certCollection, err := getCertificates(*urlFlag, *inputFileFlag)
+	flagSet := 0
+	if *urlFlag != "" {
+		flagSet++
+	}
+	if *inputFileFlag != "" {
+		flagSet++
+	}
+	if *inputDirFlag != "" {
+		flagSet++
+	}
+
+	if flagSet != 1 {
+		log.Fatalf("Either url,i or d flag must be set. Use -h for help")
+	}
+
+	certCollection, err := getCertificates(*urlFlag, *inputFileFlag, *inputDirFlag)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,22 +50,18 @@ func main() {
 	tui.Launch(certCollection)
 }
 
-func getCertificates(urlFlag string, inputFileFlag string) (model.CertificateCollection, error) {
-	if len(urlFlag) > 0 {
+func getCertificates(urlFlag string, inputFileFlag string, inputDirFlag string) (model.CertificateCollection, error) {
+	switch {
+	case len(urlFlag) > 0:
 		log.Println("Fetching certificate from url ", urlFlag)
-		certs, err := certfetcher.Get(urlFlag)
-		if err != nil {
-			return model.CertificateCollection{}, err
-		}
-		return certs, nil
-	}
-	if len(inputFileFlag) > 0 {
+		return certfetcher.Get(urlFlag)
+	case len(inputFileFlag) > 0:
 		log.Println("Reading from file")
-		certCollection, err := certreader.GetFromFile(inputFileFlag)
-		if err != nil {
-			return model.CertificateCollection{}, err
-		}
-		return certCollection, nil
+		return certreader.GetFromFile(inputFileFlag)
+	case len(inputDirFlag) > 0:
+		log.Println("Reading from directory")
+		return certreader.GetFromDirectory(inputDirFlag)
 	}
-	return model.CertificateCollection{}, errors.New("Either url or fileinput must be specified")
+
+	return model.CertificateCollection{}, errors.New("should not happen")
 }

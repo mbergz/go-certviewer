@@ -2,17 +2,21 @@ package certreader
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"go-certviewer/internal/model"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Reads certificates from a single given file.
 // If the file is in PEM format, it returns all certificates found inside along with any certificate chains.
-// If the file is in binary DER format, it returns a single certificate.
+// If the file is in binary DER format, it returns a single certificate
 func GetFromFile(inputFile string) (model.CertificateCollection, error) {
 	file, err := os.ReadFile(inputFile)
 	if err != nil {
@@ -37,6 +41,63 @@ func GetFromFile(inputFile string) (model.CertificateCollection, error) {
 	return certs, nil
 }
 
+// Reads all certifices froma all files inside the directory.
+// Builds up all the chains and additionally specifies the filename of
+// a particular certificate to be shown in tui
+func GetFromDirectory(inputDir string) (model.CertificateCollection, error) {
+	entries, err := os.ReadDir(inputDir)
+	if err != nil {
+		return model.CertificateCollection{}, fmt.Errorf("failed to read directory %s: %w", inputDir, err)
+	}
+
+	var certCollections []model.CertificateCollection
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return model.CertificateCollection{}, fmt.Errorf("failed to read information for file %s: %w", e.Name(), err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(e.Name()))
+		if ext == ".pem" || ext == ".crt" || ext == ".der" || ext == ".cer" {
+			log.Printf("Found certificate file %s in dir", e.Name())
+
+			certsFromFile, err := GetFromFile(e.Name())
+			if err != nil {
+				return model.CertificateCollection{},
+					fmt.Errorf("failed to parse pem certificates in file %s inside dir %s: %w", inputDir, e.Name(), err)
+			}
+
+			// Add filename to be used for grouping in tui
+			for i := range certsFromFile.All {
+				certsFromFile.All[i].FileName = e.Name()
+			}
+			certCollections = append(certCollections, certsFromFile)
+		}
+
+	}
+
+	var allCerts []model.CertificateEntry
+
+	index := 1
+	for _, cc := range certCollections {
+		for _, c := range cc.All {
+			allCerts = append(allCerts, model.CertificateEntry{Index: index, Cert: c.Cert, FileName: c.FileName})
+			index++
+		}
+	}
+
+	allChains := findCertificateChains(allCerts)
+
+	return model.CertificateCollection{All: allCerts, Chains: allChains}, nil
+}
+
 func parsePemCertificates(block *pem.Block, rest []byte) (model.CertificateCollection, error) {
 	certs := []model.CertificateEntry{}
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -57,7 +118,7 @@ func parsePemCertificates(block *pem.Block, rest []byte) (model.CertificateColle
 }
 
 func findCertificateChains(allCerts []model.CertificateEntry) [][]model.CertificateEntry {
-	topChainMap := make(map[int][]model.CertificateEntry)
+	topChainMap := make(map[string][]model.CertificateEntry)
 	subjectMap := make(map[string][]model.CertificateEntry)
 
 	for _, cert := range allCerts {
@@ -120,9 +181,11 @@ func findCertificateChains(allCerts []model.CertificateEntry) [][]model.Certific
 
 		// Update map with longest found chain for a top cert/root (last elem in chain)
 		topCert := chain[len(chain)-1]
-		existing, found := topChainMap[topCert.Index]
+		fingerprintHex := getFingerprintSha256(topCert.Cert)
+
+		existing, found := topChainMap[fingerprintHex]
 		if !found || len(chain) > len(existing) {
-			topChainMap[topCert.Index] = chain
+			topChainMap[fingerprintHex] = chain
 		}
 	}
 
@@ -163,4 +226,9 @@ func findPemCertificates(data []byte, idx *int) []model.CertificateEntry {
 		*idx += 1
 	}
 	return res
+}
+
+func getFingerprintSha256(cert *x509.Certificate) string {
+	fingerprintByteArr := sha256.Sum256(cert.Raw)
+	return hex.EncodeToString(fingerprintByteArr[:])
 }
