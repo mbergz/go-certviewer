@@ -321,7 +321,7 @@ func createCertChainList(certCollection model.CertificateCollection) *tview.List
 
 func createAllCertsList(certCollection model.CertificateCollection) *tview.List {
 	allCertsList := tview.NewList().SetSelectedFocusOnly(true)
-	allCertsList.SetBorder(true).SetTitle("PEM certificates")
+	allCertsList.SetBorder(true).SetTitle("All certificates")
 
 	for _, cert := range certCollection.All {
 		text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)

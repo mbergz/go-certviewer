@@ -35,7 +35,7 @@ func getCertificates(urlFlag string, inputFileFlag string) (model.CertificateCol
 	}
 	if len(inputFileFlag) > 0 {
 		log.Println("Reading from file")
-		certCollection, err := certreader.Get(inputFileFlag)
+		certCollection, err := certreader.GetFromFile(inputFileFlag)
 		if err != nil {
 			return model.CertificateCollection{}, err
 		}
