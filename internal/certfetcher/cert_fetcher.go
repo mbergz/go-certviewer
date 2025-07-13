@@ -4,13 +4,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"go-certviewer/internal/model"
 	"log"
+	"net"
+	"net/url"
 	"strings"
 )
 
-func Get(url string) (model.CertificateCollection, error) {
-	formattedUrl := formatUrl(url)
+func Get(urlInput string) (model.CertificateCollection, error) {
+	parsedUrl, err := parseUrlInput(urlInput)
+	if err != nil {
+		return model.CertificateCollection{}, err
+
+	}
 
 	var certChain []model.CertificateEntry
 
@@ -25,7 +32,7 @@ func Get(url string) (model.CertificateCollection, error) {
 		return nil
 	}
 
-	conn, err := tls.Dial("tcp", formattedUrl, &tls.Config{
+	conn, err := tls.Dial("tcp", parsedUrl.Host, &tls.Config{
 		InsecureSkipVerify:    true,
 		VerifyPeerCertificate: verifyFn,
 	})
@@ -41,9 +48,23 @@ func Get(url string) (model.CertificateCollection, error) {
 	return model.CertificateCollection{Chains: [][]model.CertificateEntry{certChain}}, nil
 }
 
-func formatUrl(url string) string {
-	if !strings.HasSuffix(url, ":443") {
-		return url + ":443"
+func parseUrlInput(urlInput string) (*url.URL, error) {
+	if !strings.HasPrefix(strings.ToLower(urlInput), "https://") {
+		urlInput = "https://" + urlInput
 	}
-	return url
+	u, err := url.ParseRequestURI(urlInput)
+	if err != nil {
+		return nil, fmt.Errorf("invalid input URL: %v", err)
+	}
+	host := u.Host
+	if host == "" {
+		return nil, fmt.Errorf("invalid input URL: empty host")
+	}
+	_, _, err = net.SplitHostPort(host)
+	if err != nil {
+		log.Println("Port missing, defaulting to 443")
+		host = net.JoinHostPort(host, "443")
+	}
+	u.Host = host
+	return u, nil
 }

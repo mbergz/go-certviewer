@@ -53,7 +53,7 @@ func main() {
 func getCertificates(urlFlag string, inputFileFlag string, inputDirFlag string) (model.CertificateCollection, error) {
 	switch {
 	case len(urlFlag) > 0:
-		log.Println("Fetching certificate from url ", urlFlag)
+		log.Println("Fetching certificate from url", urlFlag)
 		return certfetcher.Get(urlFlag)
 	case len(inputFileFlag) > 0:
 		log.Println("Reading from file")
