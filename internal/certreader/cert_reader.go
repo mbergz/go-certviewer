@@ -65,13 +65,13 @@ func GetFromDirectory(inputDir string) (model.CertificateCollection, error) {
 		}
 
 		ext := strings.ToLower(filepath.Ext(e.Name()))
-		if ext == ".pem" || ext == ".crt" || ext == ".der" || ext == ".cer" {
+		if ext == ".pem" || ext == ".crt" || ext == ".der" || ext == ".cer" || ext == ".cert" {
 			log.Printf("Found certificate file %s in dir", e.Name())
 
 			certsFromFile, err := GetFromFile(e.Name())
 			if err != nil {
-				return model.CertificateCollection{},
-					fmt.Errorf("failed to parse pem certificates in file %s inside dir %s: %w", inputDir, e.Name(), err)
+				log.Printf("Could not parse certificates from file %s: %v ", e.Name(), err)
+				continue
 			}
 
 			// Add filename to be used for grouping in tui
