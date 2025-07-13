@@ -4,9 +4,9 @@ Run cmd/main.go with one of the following flags
 
 | Flag | Description|
 |------|------------|
-| -url | URL to fetch certificate chain from (excluding root) |
-| -i   | Input certificate file in pem or der format |
-| -d   | Input directory to fetch certificates from. <br>Will scan directory for applicable cert file ending with (.pem/.crt/.cert/.der) |
+| `-url` | URL to fetch certificate chain from (excluding root) |
+| `-i`   | Input certificate file path (absolute or relative) in pem or der format|
+| `-d`   | Input directory path (absolute or relative) to fetch certificates from. <br>Will scan directory for applicable cert file ending with (.pem/.crt/.cert/.der) |
 
 ## URL Example
 ```bash
