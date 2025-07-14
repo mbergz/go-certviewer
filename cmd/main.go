@@ -15,7 +15,7 @@ import (
 
 func main() {
 	// Setup log to also append to file
-	f, err := os.OpenFile("app.log", os.O_WRONLY|os.O_CREATE, 0644)
+	f, err := os.OpenFile("app.log", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}
