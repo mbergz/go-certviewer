@@ -10,6 +10,6 @@ Run cmd/main.go with one of the following flags
 
 ## URL Example
 ```bash
-go run cmd/main.go -url google.com
+go run cmd/main.go -url example.com
 ```
 ![url flag example](/assets/screenshot_url_flag.png)
