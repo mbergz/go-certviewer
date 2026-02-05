@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
@@ -18,16 +19,17 @@ import (
 )
 
 var (
-	app             *tview.Application
-	mainFlex        *tview.Flex
-	subjectTable    *tview.Table
-	issuerTable     *tview.Table
-	extensionsTable *tview.Table
-	publicKeyTable  *tview.Table
-	signatureTable  *tview.Table
-	validityTable   *tview.Table
-	validtyTextView *tview.TextView
-	mouseEnabled    bool = true
+	app              *tview.Application
+	mainFlex         *tview.Flex
+	subjectTable     *tview.Table
+	issuerTable      *tview.Table
+	extensionsTable  *tview.Table
+	publicKeyTable   *tview.Table
+	signatureTable   *tview.Table
+	fingerprintTable *tview.Table
+	validityTable    *tview.Table
+	validtyTextView  *tview.TextView
+	mouseEnabled     bool = true
 )
 
 func Launch(certCollection model.CertificateCollection) {
@@ -65,6 +67,9 @@ func Launch(certCollection model.CertificateCollection) {
 	validtyTextView = tview.NewTextView().SetTextAlign(tview.AlignCenter).SetDynamicColors(true)
 	validtyFlex.AddItem(validityTable, 0, 2, false).AddItem(validtyTextView, 0, 1, false)
 
+	fingerprintTable = tview.NewTable()
+	fingerprintTable.SetBorder(true).SetTitle("Fingerprint")
+
 	certInfoArea := createCertInfoArea(certCollection)
 
 	mainFlex = tview.NewFlex().
@@ -72,10 +77,13 @@ func Launch(certCollection model.CertificateCollection) {
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(subjectTable, 0, 4, false).
 				AddItem(issuerTable, 0, 3, false), 0, 2, false).
-			AddItem(validtyFlex, 0, 2, false).
-			AddItem(extensionsTable, 0, 3, false).
-			AddItem(publicKeyTable, 0, 1, false).
-			AddItem(signatureTable, 0, 1, false), 0, 4, false).
+			AddItem(validtyFlex, 0, 3, false).
+			AddItem(extensionsTable, 0, 4, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+				AddItem(publicKeyTable, 0, 1, false).
+				AddItem(signatureTable, 0, 1, false), 0, 2, false).
+			AddItem(fingerprintTable, 0, 1, false),
+			0, 4, false).
 		AddItem(certInfoArea, 0, 1, true)
 
 	if err := app.SetRoot(mainFlex, true).SetFocus(mainFlex).Run(); err != nil {
@@ -191,6 +199,17 @@ func populateSignatureArea(cert *x509.Certificate) {
 	appendToTable(signatureTable, []string{formatToHex(cert.Signature)}, "Value", &row)
 }
 
+func populateFingerprintArea(cert *x509.Certificate) {
+	fingerprintTable.Clear()
+
+	h := sha256.New()
+	h.Write(cert.Raw)
+	hashByteSlice := h.Sum(nil)
+
+	row := 0
+	appendToTable(fingerprintTable, []string{formatToHex(hashByteSlice)}, "SHA256 Fingerprint", &row)
+}
+
 func populateValidityArea(cert *x509.Certificate) {
 	row := 0
 	appendToTable(validityTable, []string{cert.NotBefore.String()}, "Valid From", &row)
@@ -224,6 +243,7 @@ func onSelectedCert(cert *x509.Certificate) func() {
 		populateExtensionsArea(cert)
 		populatePublicKeyArea(cert)
 		populateSignatureArea(cert)
+		populateFingerprintArea(cert)
 	}
 }
 
