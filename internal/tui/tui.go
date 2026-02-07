@@ -65,7 +65,7 @@ func Launch(certCollection model.CertificateCollection) {
 	validtyFlex.SetBorder(true).SetTitle("Validity")
 
 	validtyTextView = tview.NewTextView().SetTextAlign(tview.AlignCenter).SetDynamicColors(true)
-	validtyFlex.AddItem(validityTable, 0, 2, false).AddItem(validtyTextView, 0, 1, false)
+	validtyFlex.AddItem(validityTable, 0, 5, false).AddItem(validtyTextView, 0, 1, false)
 
 	fingerprintTable = tview.NewTable()
 	fingerprintTable.SetBorder(true).SetTitle("Fingerprint")
