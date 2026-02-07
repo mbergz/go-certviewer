@@ -248,7 +248,7 @@ func onSelectedCert(cert *x509.Certificate) func() {
 }
 
 func appendToTableKeyOnly(table *tview.Table, displayName string, rowCount *int) {
-	table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)).SetSelectable(true).SetTransparency(true))
+	table.SetCell(*rowCount, 0, tview.NewTableCell("[#bdbdbd]"+fmt.Sprintf("%-25s", displayName)).SetSelectable(true).SetTransparency(true))
 	*rowCount++
 }
 
@@ -262,7 +262,7 @@ func appendToTableTitleWidth(table *tview.Table, value []string, displayName str
 	}
 
 	displayNameFormat := fmt.Sprintf("%%-%ds", displayNameWidth)
-	table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf(displayNameFormat, displayName)).SetSelectable(true).SetTransparency(true))
+	table.SetCell(*rowCount, 0, tview.NewTableCell("[#bdbdbd]"+fmt.Sprintf(displayNameFormat, displayName)).SetSelectable(true).SetTransparency(true))
 	table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")).SetSelectable(true).SetClickedFunc(func() bool {
 		displayText := strings.Join(value, ",")
 
@@ -322,7 +322,6 @@ func appendToTableTitleWidth(table *tview.Table, value []string, displayName str
 		return true
 	}))
 	*rowCount++
-
 }
 
 func createCertChainList(certCollection model.CertificateCollection) *tview.List {
