@@ -167,27 +167,27 @@ func populatePublicKeyArea(cert *x509.Certificate) {
 	publicKeyTable.Clear()
 	row := 0
 
-	appendToTable(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", &row)
+	appendToTableTitleWidth(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", 15, &row)
 
 	switch pubKey := cert.PublicKey.(type) {
 	case *rsa.PublicKey:
 		keySize := pubKey.N.BitLen()
-		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
 
-		appendToTable(publicKeyTable, []string{formatToHex(pubKey.N.Bytes())}, "Modulus", &row)
-		appendToTable(publicKeyTable, []string{formatHexStr(fmt.Sprintf("%x", pubKey.E))}, "Exponent", &row)
+		appendToTableTitleWidth(publicKeyTable, []string{formatToHex(pubKey.N.Bytes())}, "Modulus", 15, &row)
+		appendToTableTitleWidth(publicKeyTable, []string{formatHexStr(fmt.Sprintf("%x", pubKey.E))}, "Exponent", 15, &row)
 	case *ecdsa.PublicKey:
 		keySize := pubKey.Curve.Params().BitSize
-		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
+		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
 
 		pubKeyValue := "04 " + formatToHex(pubKey.X.Bytes()) + formatToHex(pubKey.Y.Bytes()) // Add 04 for uncompressed point identifier
-		appendToTable(publicKeyTable, []string{pubKeyValue}, "Value", &row)
-		appendToTable(publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", &row)
+		appendToTableTitleWidth(publicKeyTable, []string{pubKeyValue}, "Value", 15, &row)
+		appendToTableTitleWidth(publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", 15, &row)
 	case ed25519.PublicKey:
 		// Ed25519 is fixed at 256
 		keySize := 256
-		appendToTable(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", &row)
-		appendToTable(publicKeyTable, []string{formatToHex(pubKey)}, "Value", &row)
+		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
+		appendToTableTitleWidth(publicKeyTable, []string{formatToHex(pubKey)}, "Value", 15, &row)
 	}
 }
 
@@ -195,8 +195,8 @@ func populateSignatureArea(cert *x509.Certificate) {
 	signatureTable.Clear()
 	row := 0
 
-	appendToTable(signatureTable, []string{cert.SignatureAlgorithm.String()}, "Algorithm", &row)
-	appendToTable(signatureTable, []string{formatToHex(cert.Signature)}, "Value", &row)
+	appendToTableTitleWidth(signatureTable, []string{cert.SignatureAlgorithm.String()}, "Algorithm", 15, &row)
+	appendToTableTitleWidth(signatureTable, []string{formatToHex(cert.Signature)}, "Value", 15, &row)
 }
 
 func populateFingerprintArea(cert *x509.Certificate) {
@@ -253,68 +253,76 @@ func appendToTableKeyOnly(table *tview.Table, displayName string, rowCount *int)
 }
 
 func appendToTable(table *tview.Table, value []string, displayName string, rowCount *int) {
-	if len(value) > 0 {
-		table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf("%-25s", displayName)).SetSelectable(true).SetTransparency(true))
-		table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")).SetSelectable(true).SetClickedFunc(func() bool {
-			displayText := strings.Join(value, ",")
+	appendToTableTitleWidth(table, value, displayName, 25, rowCount)
+}
 
-			darkGray := tcell.NewRGBColor(40, 40, 40)
-			fullTextView := tview.NewTextView()
-			fullTextView.SetText(displayText)
-			fullTextView.SetBackgroundColor(darkGray)
-
-			fullTextView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
-				if action == tview.MouseRightClick {
-					content := fullTextView.GetText(true)
-					clipboard.WriteAll(content)
-				}
-				return action, event
-			})
-
-			okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
-				app.SetRoot(mainFlex, true)
-			})
-
-			okBtnFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
-				AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false).
-				AddItem(okBtn, 8, 1, false).
-				AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false)
-
-			fullTextViewWrapper := tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(fullTextView, 0, 3, false).
-				AddItem(okBtnFlex, 1, 1, false)
-			fullTextViewWrapper.SetBorder(true)
-			fullTextViewWrapper.SetBackgroundColor(darkGray)
-
-			vertFlexSize := 1
-			if len(strings.Join(value, ",")) > 200 {
-				vertFlexSize = 2
-			}
-			vertFlex := tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(nil, 0, 2, false).
-				AddItem(fullTextViewWrapper, 0, vertFlexSize, false).
-				AddItem(nil, 0, 2, false)
-
-			modalFlex := tview.NewFlex().
-				AddItem(nil, 0, 1, false).
-				AddItem(vertFlex, 0, 2, true).
-				AddItem(nil, 0, 1, false)
-
-			modalFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-				if event.Key() == tcell.KeyESC {
-					app.SetRoot(mainFlex, true)
-				}
-				return event
-			})
-
-			pages := tview.NewPages().
-				AddPage("mainFlex", mainFlex, false, true).
-				AddPage("modal", modalFlex, true, true)
-			app.SetRoot(pages, true)
-			return true
-		}))
-		*rowCount++
+func appendToTableTitleWidth(table *tview.Table, value []string, displayName string, displayNameWidth int, rowCount *int) {
+	if len(value) == 0 {
+		return
 	}
+
+	displayNameFormat := fmt.Sprintf("%%-%ds", displayNameWidth)
+	table.SetCell(*rowCount, 0, tview.NewTableCell(fmt.Sprintf(displayNameFormat, displayName)).SetSelectable(true).SetTransparency(true))
+	table.SetCell(*rowCount, 1, tview.NewTableCell(strings.Join(value, ",")).SetSelectable(true).SetClickedFunc(func() bool {
+		displayText := strings.Join(value, ",")
+
+		darkGray := tcell.NewRGBColor(40, 40, 40)
+		fullTextView := tview.NewTextView()
+		fullTextView.SetText(displayText)
+		fullTextView.SetBackgroundColor(darkGray)
+
+		fullTextView.SetMouseCapture(func(action tview.MouseAction, event *tcell.EventMouse) (tview.MouseAction, *tcell.EventMouse) {
+			if action == tview.MouseRightClick {
+				content := fullTextView.GetText(true)
+				clipboard.WriteAll(content)
+			}
+			return action, event
+		})
+
+		okBtn := tview.NewButton("OK").SetSelectedFunc(func() {
+			app.SetRoot(mainFlex, true)
+		})
+
+		okBtnFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false).
+			AddItem(okBtn, 8, 1, false).
+			AddItem(tview.NewBox().SetBackgroundColor(darkGray), 0, 1, false)
+
+		fullTextViewWrapper := tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(fullTextView, 0, 3, false).
+			AddItem(okBtnFlex, 1, 1, false)
+		fullTextViewWrapper.SetBorder(true)
+		fullTextViewWrapper.SetBackgroundColor(darkGray)
+
+		vertFlexSize := 1
+		if len(strings.Join(value, ",")) > 200 {
+			vertFlexSize = 2
+		}
+		vertFlex := tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 2, false).
+			AddItem(fullTextViewWrapper, 0, vertFlexSize, false).
+			AddItem(nil, 0, 2, false)
+
+		modalFlex := tview.NewFlex().
+			AddItem(nil, 0, 1, false).
+			AddItem(vertFlex, 0, 2, true).
+			AddItem(nil, 0, 1, false)
+
+		modalFlex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			if event.Key() == tcell.KeyESC {
+				app.SetRoot(mainFlex, true)
+			}
+			return event
+		})
+
+		pages := tview.NewPages().
+			AddPage("mainFlex", mainFlex, false, true).
+			AddPage("modal", modalFlex, true, true)
+		app.SetRoot(pages, true)
+		return true
+	}))
+	*rowCount++
+
 }
 
 func createCertChainList(certCollection model.CertificateCollection) *tview.List {
