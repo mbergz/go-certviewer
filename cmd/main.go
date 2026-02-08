@@ -46,7 +46,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	tui.Launch(certCollection)
 }
 

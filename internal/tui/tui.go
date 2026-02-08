@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
@@ -70,13 +69,14 @@ func Launch(certCollection model.CertificateCollection) {
 	fingerprintTable = tview.NewTable()
 	fingerprintTable.SetBorder(true).SetTitle("Fingerprint")
 
+	populateCertColorMap(certCollection)
 	certInfoArea := createCertInfoArea(certCollection)
 
 	mainFlex = tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(subjectTable, 0, 4, false).
-				AddItem(issuerTable, 0, 3, false), 0, 2, false).
+				AddItem(issuerTable, 0, 3, false), 0, 3, false).
 			AddItem(validtyFlex, 0, 3, false).
 			AddItem(extensionsTable, 0, 4, false).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
@@ -109,7 +109,7 @@ func createCertInfoArea(certCollection model.CertificateCollection) tview.Primit
 func populateSubjectArea(cert *x509.Certificate) {
 	subjectTable.Clear()
 	row := 0
-	appendToTable(subjectTable, []string{cert.Subject.CommonName}, "Common name (CN)", &row)
+	appendToTable(subjectTable, []string{colorizeCommonName(cert, false)}, "Common name (CN)", &row)
 	appendToTable(subjectTable, cert.Subject.Country, "Country (C)", &row)
 	appendToTable(subjectTable, cert.Subject.Organization, "Organization (O)", &row)
 	appendToTable(subjectTable, cert.Subject.OrganizationalUnit, "Organization Unit (OU)", &row)
@@ -120,7 +120,7 @@ func populateSubjectArea(cert *x509.Certificate) {
 func populateIssuerArea(cert *x509.Certificate) {
 	issuerTable.Clear()
 	row := 0
-	appendToTable(issuerTable, []string{cert.Issuer.CommonName}, "Common name (CN)", &row)
+	appendToTable(issuerTable, []string{colorizeCommonName(cert, true)}, "Common name (CN)", &row)
 	appendToTable(issuerTable, cert.Issuer.Country, "Country (C)", &row)
 	appendToTable(issuerTable, cert.Issuer.Organization, "Organization (O)", &row)
 	appendToTable(issuerTable, cert.Issuer.OrganizationalUnit, "Organization Unit (OU)", &row)
@@ -201,11 +201,7 @@ func populateSignatureArea(cert *x509.Certificate) {
 
 func populateFingerprintArea(cert *x509.Certificate) {
 	fingerprintTable.Clear()
-
-	h := sha256.New()
-	h.Write(cert.Raw)
-	hashByteSlice := h.Sum(nil)
-
+	hashByteSlice := certFingerprintBytes(cert)
 	row := 0
 	appendToTable(fingerprintTable, []string{formatToHex(hashByteSlice)}, "SHA256 Fingerprint", &row)
 }
@@ -334,7 +330,7 @@ func createCertChainList(certCollection model.CertificateCollection) *tview.List
 
 	for i, chain := range certCollection.Chains {
 		for _, cert := range chain {
-			text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
+			text := fmt.Sprintf("%d: CN=%s", cert.Index, colorizeCommonName(cert.Cert, false))
 			certChainList.AddItem(text, "", 0, onSelectedCert(cert.Cert))
 		}
 		if i != len(certCollection.Chains)-1 {
@@ -382,7 +378,7 @@ func createAllCertsList(certCollection model.CertificateCollection) *tview.List 
 
 func addCertsToAllList(list *tview.List, certs []model.CertificateEntry) {
 	for _, cert := range certs {
-		text := fmt.Sprintf("%d: CN=%s", cert.Index, cert.Cert.Subject.CommonName)
+		text := fmt.Sprintf("%d: CN=%s", cert.Index, colorizeCommonName(cert.Cert, false))
 		list.AddItem(text, "", 0, onSelectedCert(cert.Cert))
 	}
 }
