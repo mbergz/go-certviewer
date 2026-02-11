@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+const pemCertType = "CERTIFICATE"
+
 // Reads certificates from a single given file.
 // If the file is in PEM format, it returns all certificates found inside along with any certificate chains.
 // If the file is in binary DER format, it returns a single certificate
@@ -99,22 +101,43 @@ func GetFromDirectory(inputDir string) (model.CertificateCollection, error) {
 }
 
 func parsePemCertificates(block *pem.Block, rest []byte) (model.CertificateCollection, error) {
-	certs := []model.CertificateEntry{}
-	cert, err := x509.ParseCertificate(block.Bytes)
+	certs, err := findPemCertificates(block, rest)
 	if err != nil {
-		return model.CertificateCollection{}, fmt.Errorf("could not parse pem block: %w", err)
+		return model.CertificateCollection{}, fmt.Errorf("error during certificate parsing: %w", err)
 	}
-
-	index := 1
-	certs = append(certs, model.CertificateEntry{Index: index, Cert: cert})
-	if rest != nil {
-		foundCerts := findPemCertificates(rest, &index)
-		certs = append(certs, foundCerts...)
+	if len(certs) == 0 {
+		return model.CertificateCollection{}, fmt.Errorf("no valid certificates found in PEM")
 	}
-
 	chains := findCertificateChains(certs)
 	certSet := model.CertificateCollection{All: certs, Chains: chains}
 	return certSet, nil
+}
+
+func findPemCertificates(block *pem.Block, rest []byte) ([]model.CertificateEntry, error) {
+	var res []model.CertificateEntry
+	idx := 1
+
+	for {
+		if block == nil {
+			break
+		}
+
+		if block.Type != pemCertType {
+			log.Println("Skipping non-certificate PEM block:", block.Type)
+			block, rest = pem.Decode(rest)
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, model.CertificateEntry{Index: idx, Cert: cert})
+
+		block, rest = pem.Decode(rest)
+		idx += 1
+	}
+	return res, nil
 }
 
 func findCertificateChains(allCerts []model.CertificateEntry) [][]model.CertificateEntry {
@@ -204,28 +227,6 @@ func parseDerCertificate(rest []byte) (model.CertificateCollection, error) {
 	certEntry := model.CertificateEntry{Index: 1, Cert: cert}
 	certSet := model.CertificateCollection{All: []model.CertificateEntry{certEntry}, Chains: [][]model.CertificateEntry{{certEntry}}}
 	return certSet, nil
-}
-
-func findPemCertificates(data []byte, idx *int) []model.CertificateEntry {
-	var res []model.CertificateEntry
-	*idx += 1
-	for {
-		block, rest := pem.Decode(data)
-		if block == nil {
-			break
-		}
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			log.Panicf("Could not parse certificate in pem file: %v", err)
-		}
-		res = append(res, model.CertificateEntry{Index: *idx, Cert: cert})
-		if rest == nil {
-			break
-		}
-		data = rest
-		*idx += 1
-	}
-	return res
 }
 
 func getFingerprintSha256(cert *x509.Certificate) string {
