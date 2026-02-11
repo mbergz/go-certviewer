@@ -14,8 +14,6 @@ import (
 	"strings"
 )
 
-const pemCertType = "CERTIFICATE"
-
 // Reads certificates from a single given file.
 // If the file is in PEM format, it returns all certificates found inside along with any certificate chains.
 // If the file is in binary DER format, it returns a single certificate
@@ -122,7 +120,7 @@ func findPemCertificates(block *pem.Block, rest []byte) ([]model.CertificateEntr
 			break
 		}
 
-		if block.Type != pemCertType {
+		if block.Type != "CERTIFICATE" {
 			log.Println("Skipping non-certificate PEM block:", block.Type)
 			block, rest = pem.Decode(rest)
 			continue
