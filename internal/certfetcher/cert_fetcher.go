@@ -32,6 +32,10 @@ func Get(urlInput string, insecureFlag bool) (model.CertificateCollection, error
 		return nil
 	}
 
+	if insecureFlag {
+		log.Println("Insecure flag is set. Skipping certificate validation")
+	}
+
 	conn, err := tls.Dial("tcp", parsedUrl.Host, &tls.Config{
 		InsecureSkipVerify:    insecureFlag,
 		VerifyPeerCertificate: verifyFn,
