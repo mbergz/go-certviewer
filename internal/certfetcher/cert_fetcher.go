@@ -12,12 +12,12 @@ import (
 	"strings"
 )
 
-func Get(urlInput string) (model.CertificateCollection, error) {
+func Get(urlInput string, insecureFlag bool) (model.CertificateCollection, error) {
 	parsedUrl, err := parseUrlInput(urlInput)
 	if err != nil {
 		return model.CertificateCollection{}, err
-
 	}
+	log.Println("Parsed URL:", parsedUrl)
 
 	var certChain []model.CertificateEntry
 
@@ -33,7 +33,7 @@ func Get(urlInput string) (model.CertificateCollection, error) {
 	}
 
 	conn, err := tls.Dial("tcp", parsedUrl.Host, &tls.Config{
-		InsecureSkipVerify:    true,
+		InsecureSkipVerify:    insecureFlag,
 		VerifyPeerCertificate: verifyFn,
 	})
 	if err != nil {

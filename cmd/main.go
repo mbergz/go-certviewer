@@ -13,6 +13,13 @@ import (
 	"go-certviewer/internal/tui"
 )
 
+type Flags struct {
+	url       *string
+	insecure  *bool
+	inputFile *string
+	inputDir  *string
+}
+
 func main() {
 	// Setup log to also append to file
 	f, err := os.OpenFile("app.log", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -22,44 +29,55 @@ func main() {
 	defer f.Close()
 	log.SetOutput(io.MultiWriter(f, os.Stderr))
 
-	urlFlag := flag.String("url", "", "Url of website to fetch certificate from")
-	inputFileFlag := flag.String("i", "", "Input certificate file in .pem or .crt format")
-	inputDirFlag := flag.String("d", "", "Input directory with certificates in .pem or .crt format")
+	flags := &Flags{
+		url:       flag.String("url", "", "Url of website to fetch certificate from"),
+		insecure:  flag.Bool("k", false, "Skip TLS certificate verification (allow self-signed or unknown CAs). Only used together with '-url' flag"),
+		inputFile: flag.String("i", "", "Input certificate file in .pem or .crt format"),
+		inputDir:  flag.String("d", "", "Input directory with certificates in .pem or .crt format"),
+	}
 	flag.Parse()
 
-	flagSet := 0
-	if *urlFlag != "" {
-		flagSet++
-	}
-	if *inputFileFlag != "" {
-		flagSet++
-	}
-	if *inputDirFlag != "" {
-		flagSet++
+	validateFlags(flags)
+
+	certCollection, err := getCertificates(flags)
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	tui.Launch(certCollection)
+}
+
+func validateFlags(flags *Flags) {
+	flagSet := 0
+	if *flags.url != "" {
+		flagSet++
+	}
+	if *flags.inputFile != "" {
+		flagSet++
+	}
+	if *flags.inputDir != "" {
+		flagSet++
+	}
 	if flagSet != 1 {
 		log.Fatalf("Either url,i or d flag must be set. Use -h for help")
 	}
 
-	certCollection, err := getCertificates(*urlFlag, *inputFileFlag, *inputDirFlag)
-	if err != nil {
-		log.Fatal(err)
+	if *flags.insecure && *flags.url == "" {
+		log.Fatalf("Insecure flag cannot be set without url flag")
 	}
-	tui.Launch(certCollection)
 }
 
-func getCertificates(urlFlag string, inputFileFlag string, inputDirFlag string) (model.CertificateCollection, error) {
+func getCertificates(flags *Flags) (model.CertificateCollection, error) {
 	switch {
-	case len(urlFlag) > 0:
-		log.Println("Fetching certificate from url", urlFlag)
-		return certfetcher.Get(urlFlag)
-	case len(inputFileFlag) > 0:
+	case len(*flags.url) > 0:
+		log.Printf("Fetching certificate from url: %s with insecure: %t", *flags.url, *flags.insecure)
+		return certfetcher.Get(*flags.url, *flags.insecure)
+	case len(*flags.inputFile) > 0:
 		log.Println("Reading from file")
-		return certreader.GetFromFile(inputFileFlag)
-	case len(inputDirFlag) > 0:
+		return certreader.GetFromFile(*flags.inputFile)
+	case len(*flags.inputDir) > 0:
 		log.Println("Reading from directory")
-		return certreader.GetFromDirectory(inputDirFlag)
+		return certreader.GetFromDirectory(*flags.inputDir)
 	}
 
 	return model.CertificateCollection{}, errors.New("should not happen")
