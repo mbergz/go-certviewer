@@ -1,6 +1,6 @@
 # go-certviewer
 ## Usage
-Run cmd/main.go with one of the following flags
+Run cmd/main.go with the following flags
 
 | Flag | Description|
 |------|------------|
