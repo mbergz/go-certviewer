@@ -7,11 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"go-certviewer/internal/model"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/mbergz/go-certviewer/internal/model"
 )
 
 // Reads certificates from a single given file.

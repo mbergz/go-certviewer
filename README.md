@@ -1,7 +1,11 @@
 # go-certviewer
-## Usage
-Run cmd/main.go with the following flags
 
+## Install
+```sh
+go install github.com/mbergz/go-certviewer/cmd/go-certviewer@latest
+```
+
+## Usage
 | Flag | Description|
 |------|------------|
 | `-url` | URL to fetch certificate chain from |
@@ -11,6 +15,6 @@ Run cmd/main.go with the following flags
 
 ## URL Example
 ```bash
-go run cmd/main.go -url example.com
+go-certviewer -url example.com
 ```
 ![url flag example](/assets/screenshot_url_flag.png)
