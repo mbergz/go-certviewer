@@ -5,11 +5,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"go-certviewer/internal/model"
 	"log"
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/mbergz/go-certviewer/internal/model"
 )
 
 func Get(urlInput string, insecureFlag bool) (model.CertificateCollection, error) {

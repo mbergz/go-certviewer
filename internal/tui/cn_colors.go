@@ -5,8 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
-	"go-certviewer/internal/model"
 	"math/rand"
+
+	"github.com/mbergz/go-certviewer/internal/model"
 )
 
 type CNColors struct {

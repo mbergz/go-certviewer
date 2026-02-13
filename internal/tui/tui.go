@@ -7,10 +7,11 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"fmt"
-	"go-certviewer/internal/model"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mbergz/go-certviewer/internal/model"
 
 	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"

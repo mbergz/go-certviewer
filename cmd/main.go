@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 
-	"go-certviewer/internal/certfetcher"
-	"go-certviewer/internal/certreader"
-	"go-certviewer/internal/model"
-	"go-certviewer/internal/tui"
+	"github.com/mbergz/go-certviewer/internal/certfetcher"
+	"github.com/mbergz/go-certviewer/internal/certreader"
+	"github.com/mbergz/go-certviewer/internal/model"
+	"github.com/mbergz/go-certviewer/internal/tui"
 )
 
 type Flags struct {
