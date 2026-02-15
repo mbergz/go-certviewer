@@ -72,8 +72,8 @@ func validateFlags(flags *Flags) {
 func getCertificates(flags *Flags) (model.CertificateCollection, error) {
 	switch {
 	case len(*flags.url) > 0:
-		log.Printf("Fetching certificate from url: %s with insecure: %t", *flags.url, *flags.insecure)
-		return certfetcher.Get(*flags.url, *flags.insecure)
+		log.Printf("Fetching certificate from url: %s", *flags.url)
+		return certfetcher.Get(*flags.url, *flags.insecure, *flags.cacert)
 	case len(*flags.inputFile) > 0:
 		log.Println("Reading from file")
 		return certreader.GetFromFile(*flags.inputFile)
