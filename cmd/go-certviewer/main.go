@@ -16,6 +16,7 @@ import (
 type Flags struct {
 	url       *string
 	insecure  *bool
+	cacert    *string
 	inputFile *string
 	inputDir  *string
 }
@@ -32,6 +33,7 @@ func main() {
 	flags := &Flags{
 		url:       flag.String("url", "", "Url of website to fetch certificate from"),
 		insecure:  flag.Bool("k", false, "Skip TLS certificate verification (allow self-signed or unknown CAs). Only used together with '-url' flag"),
+		cacert:    flag.String("cacert", "", "Optional CA certificate file for server verification"),
 		inputFile: flag.String("i", "", "Input certificate file in .pem or .crt format"),
 		inputDir:  flag.String("d", "", "Input directory with certificates in .pem or .crt format"),
 	}
@@ -70,8 +72,8 @@ func validateFlags(flags *Flags) {
 func getCertificates(flags *Flags) (model.CertificateCollection, error) {
 	switch {
 	case len(*flags.url) > 0:
-		log.Printf("Fetching certificate from url: %s with insecure: %t", *flags.url, *flags.insecure)
-		return certfetcher.Get(*flags.url, *flags.insecure)
+		log.Printf("Fetching certificate from url: %s", *flags.url)
+		return certfetcher.Get(*flags.url, *flags.insecure, *flags.cacert)
 	case len(*flags.inputFile) > 0:
 		log.Println("Reading from file")
 		return certreader.GetFromFile(*flags.inputFile)
