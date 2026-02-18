@@ -133,35 +133,47 @@ func populateExtensionsArea(cert *x509.Certificate) {
 	extensionsTable.Clear()
 	row := 0
 
-	if len(cert.DNSNames) > 0 || len(cert.IPAddresses) > 0 || len(cert.EmailAddresses) > 0 || len(cert.URIs) > 0 {
-		appendToTableKeyOnly(extensionsTable, "Subject Alternative Name (SAN)", &row)
-	}
-
-	appendToTable(extensionsTable, cert.DNSNames, "    DNS names", &row)
-	if len(cert.IPAddresses) > 0 {
-		ipAsString := make([]string, len(cert.IPAddresses))
-		for i, ip := range cert.IPAddresses {
-			ipAsString[i] = ip.String()
-		}
-		appendToTable(extensionsTable, ipAsString, "    IP addresses", &row)
-	}
-	appendToTable(extensionsTable, cert.EmailAddresses, "    Email addresses", &row)
-	if len(cert.URIs) > 0 {
-		urisAsString := make([]string, len(cert.URIs))
-		for i, ip := range cert.URIs {
-			urisAsString[i] = ip.String()
-		}
-		appendToTable(extensionsTable, urisAsString, "    URI's", &row)
-	}
+	appendSubjectAlternativeNames(cert, &row)
 
 	if len(cert.OCSPServer) > 0 || len(cert.IssuingCertificateURL) > 0 {
-		appendToTableKeyOnly(extensionsTable, "Authority Information Access (AIA)", &row)
+		appendToTableKeyOnly(extensionsTable, "Authority Information Access (AIA):", &row)
 	}
 	appendToTable(extensionsTable, cert.OCSPServer, "    OCSP", &row)
 	appendToTable(extensionsTable, cert.IssuingCertificateURL, "    Issuer URL", &row)
 
 	appendToTable(extensionsTable, []string{formatToHex(cert.SubjectKeyId)}, "Subject Key Identifier (SKI)", &row)
 	appendToTable(extensionsTable, []string{formatToHex(cert.AuthorityKeyId)}, "Authority Key Identifier (AKI)", &row)
+
+	if cert.BasicConstraintsValid {
+		appendToTableKeyOnly(extensionsTable, "Basic constraints:", &row)
+	}
+	appendToTable(extensionsTable, []string{strconv.FormatBool(cert.IsCA)}, "    Is CA", &row)
+	if cert.MaxPathLen != -1 {
+		appendToTable(extensionsTable, []string{strconv.Itoa(cert.MaxPathLen)}, "    Max path length", &row)
+	}
+}
+
+func appendSubjectAlternativeNames(cert *x509.Certificate, row *int) {
+	if len(cert.DNSNames) > 0 || len(cert.IPAddresses) > 0 || len(cert.EmailAddresses) > 0 || len(cert.URIs) > 0 {
+		appendToTableKeyOnly(extensionsTable, "Subject Alternative Name (SAN):", row)
+	}
+
+	appendToTable(extensionsTable, cert.DNSNames, "    DNS names", row)
+	if len(cert.IPAddresses) > 0 {
+		ipAsString := make([]string, len(cert.IPAddresses))
+		for i, ip := range cert.IPAddresses {
+			ipAsString[i] = ip.String()
+		}
+		appendToTable(extensionsTable, ipAsString, "    IP addresses", row)
+	}
+	appendToTable(extensionsTable, cert.EmailAddresses, "    Email addresses", row)
+	if len(cert.URIs) > 0 {
+		urisAsString := make([]string, len(cert.URIs))
+		for i, ip := range cert.URIs {
+			urisAsString[i] = ip.String()
+		}
+		appendToTable(extensionsTable, urisAsString, "    URI's", row)
+	}
 }
 
 func populatePublicKeyArea(cert *x509.Certificate) {
