@@ -5,12 +5,14 @@ import (
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mbergz/go-certviewer/internal/certutil"
 	"github.com/mbergz/go-certviewer/internal/model"
 
 	"github.com/atotto/clipboard"
@@ -60,7 +62,7 @@ func Launch(certCollection model.CertificateCollection) {
 	signatureTable.SetBorder(true).SetTitle("Signature")
 
 	validityTable = tview.NewTable()
-	validityTable.SetBorderPadding(1, 1, 0, 0)
+	validityTable.SetBorderPadding(1, 0, 0, 0)
 	validtyFlex := tview.NewFlex().SetDirection(tview.FlexRow)
 	validtyFlex.SetBorder(true).SetTitle("Validity")
 
@@ -78,7 +80,7 @@ func Launch(certCollection model.CertificateCollection) {
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(subjectTable, 0, 4, false).
 				AddItem(issuerTable, 0, 3, false), 0, 3, false).
-			AddItem(validtyFlex, 0, 3, false).
+			AddItem(validtyFlex, 0, 2, false).
 			AddItem(extensionsTable, 0, 4, false).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
 				AddItem(publicKeyTable, 0, 1, false).
@@ -136,7 +138,7 @@ func populateExtensionsArea(cert *x509.Certificate) {
 	appendSubjectAlternativeNames(cert, &row)
 
 	if len(cert.OCSPServer) > 0 || len(cert.IssuingCertificateURL) > 0 {
-		appendToTableKeyOnly(extensionsTable, "Authority Information Access (AIA):", &row)
+		appendToTableExtensionKeyOnly(extensionsTable, "Authority Information Access (AIA):", cert, certutil.OidExtensionAuthorityInfoAccess, &row)
 	}
 	appendToTable(extensionsTable, cert.OCSPServer, "    OCSP", &row)
 	appendToTable(extensionsTable, cert.IssuingCertificateURL, "    Issuer URL", &row)
@@ -145,7 +147,7 @@ func populateExtensionsArea(cert *x509.Certificate) {
 	appendToTable(extensionsTable, []string{formatToHex(cert.AuthorityKeyId)}, "Authority Key Identifier (AKI)", &row)
 
 	if cert.BasicConstraintsValid {
-		appendToTableKeyOnly(extensionsTable, "Basic constraints:", &row)
+		appendToTableExtensionKeyOnly(extensionsTable, "Basic constraints:", cert, certutil.OidExtensionBasicConstraints, &row)
 	}
 	appendToTable(extensionsTable, []string{strconv.FormatBool(cert.IsCA)}, "    Is CA", &row)
 	if cert.MaxPathLen != -1 {
@@ -153,9 +155,17 @@ func populateExtensionsArea(cert *x509.Certificate) {
 	}
 }
 
+func appendToTableExtensionKeyOnly(table *tview.Table, displayName string, cert *x509.Certificate, oid asn1.ObjectIdentifier, rowCount *int) {
+	name := displayName
+	if certutil.IsExtensionMarkedCritical(cert, oid) {
+		name += " [#808080::i]critical"
+	}
+	appendToTableKeyOnly(table, name, rowCount)
+}
+
 func appendSubjectAlternativeNames(cert *x509.Certificate, row *int) {
 	if len(cert.DNSNames) > 0 || len(cert.IPAddresses) > 0 || len(cert.EmailAddresses) > 0 || len(cert.URIs) > 0 {
-		appendToTableKeyOnly(extensionsTable, "Subject Alternative Name (SAN):", row)
+		appendToTableExtensionKeyOnly(extensionsTable, "Subject Alternative Name (SAN):", cert, certutil.OidExtensionSubjectAltName, row)
 	}
 
 	appendToTable(extensionsTable, cert.DNSNames, "    DNS names", row)
