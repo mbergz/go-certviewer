@@ -43,9 +43,11 @@ func (v *PublicKeyView) update(cert *x509.Certificate) {
 		keySize := pubKey.Curve.Params().BitSize
 		appendToTableTitleWidth(v.publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
 
-		pubKeyValue := "04 " + formatToHex(pubKey.X.Bytes()) + formatToHex(pubKey.Y.Bytes()) // Add 04 for uncompressed point identifier
-		appendToTableTitleWidth(v.publicKeyTable, []string{pubKeyValue}, "Value", 15, &row)
-		appendToTableTitleWidth(v.publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", 15, &row)
+		ecdhKey, err := pubKey.ECDH()
+		if err == nil {
+			appendToTableTitleWidth(v.publicKeyTable, []string{formatToHex(ecdhKey.Bytes())}, "Value", 15, &row)
+			appendToTableTitleWidth(v.publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", 15, &row)
+		}
 	case ed25519.PublicKey:
 		// Ed25519 is fixed at 256
 		keySize := 256
