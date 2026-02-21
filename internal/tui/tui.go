@@ -1,18 +1,11 @@
 package tui
 
 import (
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/mbergz/go-certviewer/internal/certutil"
 	"github.com/mbergz/go-certviewer/internal/model"
 
 	"github.com/atotto/clipboard"
@@ -21,17 +14,10 @@ import (
 )
 
 var (
-	app              *tview.Application
-	mainFlex         *tview.Flex
-	subjectTable     *tview.Table
-	issuerTable      *tview.Table
-	extensionsTable  *tview.Table
-	publicKeyTable   *tview.Table
-	signatureTable   *tview.Table
-	fingerprintTable *tview.Table
-	validityTable    *tview.Table
-	validtyTextView  *tview.TextView
-	mouseEnabled     bool = true
+	app          *tview.Application
+	mainFlex     *tview.Flex
+	mouseEnabled bool = true
+	views        []View
 )
 
 func Launch(certCollection model.CertificateCollection) {
@@ -46,46 +32,30 @@ func Launch(certCollection model.CertificateCollection) {
 		return event
 	})
 
-	subjectTable = tview.NewTable()
-	subjectTable.SetBorder(true).SetTitle("Subject").SetBorderPadding(1, 1, 0, 0)
-
-	issuerTable = tview.NewTable()
-	issuerTable.SetBorder(true).SetTitle("Issuer").SetBorderPadding(1, 1, 0, 0)
-
-	extensionsTable = tview.NewTable()
-	extensionsTable.SetBorder(true).SetTitle("X.509 v3 extensions").SetBorderPadding(1, 1, 0, 0)
-
-	publicKeyTable = tview.NewTable()
-	publicKeyTable.SetBorder(true).SetTitle("Public key")
-
-	signatureTable = tview.NewTable()
-	signatureTable.SetBorder(true).SetTitle("Signature")
-
-	validityTable = tview.NewTable()
-	validityTable.SetBorderPadding(1, 0, 0, 0)
-	validtyFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-	validtyFlex.SetBorder(true).SetTitle("Validity")
-
-	validtyTextView = tview.NewTextView().SetTextAlign(tview.AlignCenter).SetDynamicColors(true)
-	validtyFlex.AddItem(validityTable, 0, 5, false).AddItem(validtyTextView, 0, 1, false)
-
-	fingerprintTable = tview.NewTable()
-	fingerprintTable.SetBorder(true).SetTitle("Fingerprint")
+	subjectView := newSubjectView()
+	issuerView := newIssuerView()
+	extensionsView := newExtensionsView()
+	publicKeyView := newPublicKeyView()
+	signatureView := newSignatureView()
+	validityView := newValidityView()
+	fingerprintView := newFingerprintView()
+	views = append(views, subjectView, issuerView, extensionsView, publicKeyView, signatureView, validityView, fingerprintView)
 
 	populateCertColorMap(certCollection)
-	certInfoArea := createCertInfoArea(certCollection)
+
+	certInfoArea := createCertInfoArea(certCollection, onSelectedCert)
 
 	mainFlex = tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-				AddItem(subjectTable, 0, 4, false).
-				AddItem(issuerTable, 0, 3, false), 0, 3, false).
-			AddItem(validtyFlex, 0, 2, false).
-			AddItem(extensionsTable, 0, 4, false).
+				AddItem(subjectView.primitive(), 0, 4, false).
+				AddItem(issuerView.primitive(), 0, 3, false), 0, 3, false).
+			AddItem(validityView.primitive(), 0, 2, false).
+			AddItem(extensionsView.primitive(), 0, 4, false).
 			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-				AddItem(publicKeyTable, 0, 1, false).
-				AddItem(signatureTable, 0, 1, false), 0, 2, false).
-			AddItem(fingerprintTable, 0, 1, false),
+				AddItem(publicKeyView.primitive(), 0, 1, false).
+				AddItem(signatureView.primitive(), 0, 1, false), 0, 2, false).
+			AddItem(fingerprintView.primitive(), 0, 1, false),
 			0, 4, false).
 		AddItem(certInfoArea, 0, 1, true)
 
@@ -94,175 +64,11 @@ func Launch(certCollection model.CertificateCollection) {
 	}
 }
 
-func createCertInfoArea(certCollection model.CertificateCollection) tview.Primitive {
-	certChainList := createCertChainList(certCollection)
-	var allCerts *tview.List
-	if len(certCollection.All) > 0 {
-		allCerts = createAllCertsList(certCollection)
-	}
-
-	if allCerts != nil {
-		return tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(certChainList, 0, 1, true).
-			AddItem(allCerts, 0, 1, false)
-	}
-	return certChainList
-}
-
-func populateSubjectArea(cert *x509.Certificate) {
-	subjectTable.Clear()
-	row := 0
-	appendToTable(subjectTable, []string{colorizeCommonName(cert, false)}, "Common name (CN)", &row)
-	appendToTable(subjectTable, cert.Subject.Country, "Country (C)", &row)
-	appendToTable(subjectTable, cert.Subject.Organization, "Organization (O)", &row)
-	appendToTable(subjectTable, cert.Subject.OrganizationalUnit, "Organization Unit (OU)", &row)
-	appendToTable(subjectTable, cert.Subject.Locality, "Locality (L)", &row)
-	appendToTable(subjectTable, cert.Subject.Province, "State or province name (S)", &row)
-}
-
-func populateIssuerArea(cert *x509.Certificate) {
-	issuerTable.Clear()
-	row := 0
-	appendToTable(issuerTable, []string{colorizeCommonName(cert, true)}, "Common name (CN)", &row)
-	appendToTable(issuerTable, cert.Issuer.Country, "Country (C)", &row)
-	appendToTable(issuerTable, cert.Issuer.Organization, "Organization (O)", &row)
-	appendToTable(issuerTable, cert.Issuer.OrganizationalUnit, "Organization Unit (OU)", &row)
-	appendToTable(issuerTable, cert.Issuer.Locality, "Locality (L)", &row)
-	appendToTable(issuerTable, cert.Issuer.Province, "State or province name (S)", &row)
-}
-
-func populateExtensionsArea(cert *x509.Certificate) {
-	extensionsTable.Clear()
-	row := 0
-
-	appendSubjectAlternativeNames(cert, &row)
-
-	if len(cert.OCSPServer) > 0 || len(cert.IssuingCertificateURL) > 0 {
-		appendToTableExtensionKeyOnly(extensionsTable, "Authority Information Access (AIA):", cert, certutil.OidExtensionAuthorityInfoAccess, &row)
-	}
-	appendToTable(extensionsTable, cert.OCSPServer, "    OCSP", &row)
-	appendToTable(extensionsTable, cert.IssuingCertificateURL, "    Issuer URL", &row)
-
-	appendToTable(extensionsTable, []string{formatToHex(cert.SubjectKeyId)}, "Subject Key Identifier (SKI)", &row)
-	appendToTable(extensionsTable, []string{formatToHex(cert.AuthorityKeyId)}, "Authority Key Identifier (AKI)", &row)
-
-	if cert.BasicConstraintsValid {
-		appendToTableExtensionKeyOnly(extensionsTable, "Basic constraints:", cert, certutil.OidExtensionBasicConstraints, &row)
-	}
-	appendToTable(extensionsTable, []string{strconv.FormatBool(cert.IsCA)}, "    Is CA", &row)
-	if cert.MaxPathLen != -1 {
-		appendToTable(extensionsTable, []string{strconv.Itoa(cert.MaxPathLen)}, "    Max path length", &row)
-	}
-}
-
-func appendToTableExtensionKeyOnly(table *tview.Table, displayName string, cert *x509.Certificate, oid asn1.ObjectIdentifier, rowCount *int) {
-	name := displayName
-	if certutil.IsExtensionMarkedCritical(cert, oid) {
-		name += " [#808080::i]critical"
-	}
-	appendToTableKeyOnly(table, name, rowCount)
-}
-
-func appendSubjectAlternativeNames(cert *x509.Certificate, row *int) {
-	if len(cert.DNSNames) > 0 || len(cert.IPAddresses) > 0 || len(cert.EmailAddresses) > 0 || len(cert.URIs) > 0 {
-		appendToTableExtensionKeyOnly(extensionsTable, "Subject Alternative Name (SAN):", cert, certutil.OidExtensionSubjectAltName, row)
-	}
-
-	appendToTable(extensionsTable, cert.DNSNames, "    DNS names", row)
-	if len(cert.IPAddresses) > 0 {
-		ipAsString := make([]string, len(cert.IPAddresses))
-		for i, ip := range cert.IPAddresses {
-			ipAsString[i] = ip.String()
-		}
-		appendToTable(extensionsTable, ipAsString, "    IP addresses", row)
-	}
-	appendToTable(extensionsTable, cert.EmailAddresses, "    Email addresses", row)
-	if len(cert.URIs) > 0 {
-		urisAsString := make([]string, len(cert.URIs))
-		for i, ip := range cert.URIs {
-			urisAsString[i] = ip.String()
-		}
-		appendToTable(extensionsTable, urisAsString, "    URI's", row)
-	}
-}
-
-func populatePublicKeyArea(cert *x509.Certificate) {
-	publicKeyTable.Clear()
-	row := 0
-
-	appendToTableTitleWidth(publicKeyTable, []string{cert.PublicKeyAlgorithm.String()}, "Algorithm", 15, &row)
-
-	switch pubKey := cert.PublicKey.(type) {
-	case *rsa.PublicKey:
-		keySize := pubKey.N.BitLen()
-		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
-
-		appendToTableTitleWidth(publicKeyTable, []string{formatToHex(pubKey.N.Bytes())}, "Modulus", 15, &row)
-		appendToTableTitleWidth(publicKeyTable, []string{formatHexStr(fmt.Sprintf("%x", pubKey.E))}, "Exponent", 15, &row)
-	case *ecdsa.PublicKey:
-		keySize := pubKey.Curve.Params().BitSize
-		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
-
-		pubKeyValue := "04 " + formatToHex(pubKey.X.Bytes()) + formatToHex(pubKey.Y.Bytes()) // Add 04 for uncompressed point identifier
-		appendToTableTitleWidth(publicKeyTable, []string{pubKeyValue}, "Value", 15, &row)
-		appendToTableTitleWidth(publicKeyTable, []string{pubKey.Curve.Params().Name}, "Curve", 15, &row)
-	case ed25519.PublicKey:
-		// Ed25519 is fixed at 256
-		keySize := 256
-		appendToTableTitleWidth(publicKeyTable, []string{fmt.Sprintf("%s bits", strconv.Itoa(keySize))}, "Key size", 15, &row)
-		appendToTableTitleWidth(publicKeyTable, []string{formatToHex(pubKey)}, "Value", 15, &row)
-	}
-}
-
-func populateSignatureArea(cert *x509.Certificate) {
-	signatureTable.Clear()
-	row := 0
-
-	appendToTableTitleWidth(signatureTable, []string{cert.SignatureAlgorithm.String()}, "Algorithm", 15, &row)
-	appendToTableTitleWidth(signatureTable, []string{formatToHex(cert.Signature)}, "Value", 15, &row)
-}
-
-func populateFingerprintArea(cert *x509.Certificate) {
-	fingerprintTable.Clear()
-	hashByteSlice := certFingerprintBytes(cert)
-	row := 0
-	appendToTable(fingerprintTable, []string{formatToHex(hashByteSlice)}, "SHA256 Fingerprint", &row)
-}
-
-func populateValidityArea(cert *x509.Certificate) {
-	row := 0
-	appendToTable(validityTable, []string{cert.NotBefore.String()}, "Valid From", &row)
-	appendToTable(validityTable, []string{cert.NotAfter.String()}, "Valid To", &row)
-	validtyTextView.Clear()
-
-	now := time.Now()
-	if now.After(cert.NotAfter) {
-		fmt.Fprintf(validtyTextView, "Certificate has [red]expired[white]")
-	} else {
-		expiresIn := cert.NotAfter.Sub(now)
-		expiresInDays := int(expiresIn.Hours() / 24)
-
-		if expiresInDays > 30 {
-			fmt.Fprintf(validtyTextView, "Certificate will expire in [green]%d[white] days", expiresInDays)
-		} else if expiresInDays < 3 {
-			fmt.Fprintf(validtyTextView, "Certificate will expire in [red]%d[white] days", expiresInDays)
-		} else if expiresInDays < 10 {
-			fmt.Fprintf(validtyTextView, "Certificate will expire in [orange]%d[white] days", expiresInDays)
-		} else { // 10 - 30 days
-			fmt.Fprintf(validtyTextView, "Certificate will expire in [yellow]%d[white] days", expiresInDays)
-		}
-	}
-}
-
 func onSelectedCert(cert *x509.Certificate) func() {
 	return func() {
-		populateSubjectArea(cert)
-		populateValidityArea(cert)
-		populateIssuerArea(cert)
-		populateExtensionsArea(cert)
-		populatePublicKeyArea(cert)
-		populateSignatureArea(cert)
-		populateFingerprintArea(cert)
+		for _, v := range views {
+			v.update(cert)
+		}
 	}
 }
 
@@ -341,69 +147,6 @@ func appendToTableTitleWidth(table *tview.Table, value []string, displayName str
 		return true
 	}))
 	*rowCount++
-}
-
-func createCertChainList(certCollection model.CertificateCollection) *tview.List {
-	certChainList := tview.NewList()
-	title := "Certificate chain"
-	if len(certCollection.Chains) > 1 {
-		title += "s"
-	}
-	certChainList.SetBorder(true).SetTitle(title)
-
-	for i, chain := range certCollection.Chains {
-		for _, cert := range chain {
-			text := fmt.Sprintf("%d: CN=%s", cert.Index, colorizeCommonName(cert.Cert, false))
-			certChainList.AddItem(text, "", 0, onSelectedCert(cert.Cert))
-		}
-		if i != len(certCollection.Chains)-1 {
-			certChainList.AddItem("-----Next chain------", "", 0, nil)
-		}
-	}
-
-	onSelectedCert(certCollection.Chains[0][0].Cert)()
-	return certChainList
-}
-
-func createAllCertsList(certCollection model.CertificateCollection) *tview.List {
-	allCertsList := tview.NewList().SetSelectedFocusOnly(true)
-	allCertsList.SetBorder(true).SetTitle("All certificates")
-
-	// Only render grouped by filename if all certs have a filename set
-	haveFileNames := true
-	for _, cert := range certCollection.All {
-		if cert.FileName == "" {
-			haveFileNames = false
-			break
-		}
-	}
-
-	if haveFileNames {
-		fileNameCertsMap := make(map[string][]model.CertificateEntry)
-		for _, cert := range certCollection.All {
-			if found, ok := fileNameCertsMap[cert.FileName]; ok {
-				fileNameCertsMap[cert.FileName] = append(found, cert)
-			} else {
-				fileNameCertsMap[cert.FileName] = []model.CertificateEntry{cert}
-			}
-		}
-
-		for key, value := range fileNameCertsMap {
-			allCertsList.AddItem(fmt.Sprintf("-- %s --", key), "", 0, nil)
-			addCertsToAllList(allCertsList, value)
-		}
-	} else {
-		addCertsToAllList(allCertsList, certCollection.All)
-	}
-
-	return allCertsList
-}
-
-func addCertsToAllList(list *tview.List, certs []model.CertificateEntry) {
-	for _, cert := range certs {
-		text := fmt.Sprintf("%d: CN=%s", cert.Index, colorizeCommonName(cert.Cert, false))
-		list.AddItem(text, "", 0, onSelectedCert(cert.Cert))
-	}
 }
 
 func formatToHex(input []byte) string {
