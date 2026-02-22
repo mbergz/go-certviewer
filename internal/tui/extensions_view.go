@@ -4,10 +4,23 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"strconv"
+	"strings"
 
 	"github.com/mbergz/go-certviewer/internal/certutil"
 	"github.com/rivo/tview"
 )
+
+var keyUsageTypes = []string{
+	"digitalSignature",
+	"contentCommitment",
+	"keyEncipherment",
+	"dataEncipherment",
+	"keyAgreement",
+	"keyCertSign",
+	"cRLSign",
+	"encipherOnly",
+	"decipherOnly",
+}
 
 type ExtensionsView struct {
 	extTable *tview.Table
@@ -15,7 +28,7 @@ type ExtensionsView struct {
 
 func newExtensionsView() *ExtensionsView {
 	extTable := tview.NewTable()
-	extTable.SetBorder(true).SetTitle("X.509 v3 extensions").SetBorderPadding(1, 1, 0, 0)
+	extTable.SetBorder(true).SetTitle("X.509 v3 extensions")
 
 	return &ExtensionsView{extTable}
 }
@@ -46,6 +59,34 @@ func (v *ExtensionsView) update(cert *x509.Certificate) {
 	if cert.MaxPathLen != -1 {
 		appendToTable(v.extTable, []string{strconv.Itoa(cert.MaxPathLen)}, "    Max path length", &row)
 	}
+
+	if cert.KeyUsage > 0 {
+		v.appendToTableExtension([]string{parseKeyUsage(cert)}, "Key usage", cert, certutil.OidExtensionKeyUsage, &row)
+	}
+	if len(cert.ExtKeyUsage) > 0 {
+		v.appendToTableExtension([]string{parseExtKeyUsage(cert)}, "Extended Key usage", cert, certutil.OidExtensionKeyUsage, &row)
+	}
+}
+
+func parseKeyUsage(cert *x509.Certificate) string {
+	keyUsageBitmap := cert.KeyUsage
+	res := make([]string, 0)
+	// Check all possible flags in bitmap for keyUsage
+	for i := 0; i < len(keyUsageTypes); i++ {
+		testBit := 1 << i
+		if int(keyUsageBitmap)&testBit > 0 {
+			res = append(res, keyUsageTypes[i])
+		}
+	}
+	return strings.Join(res, ", ")
+}
+
+func parseExtKeyUsage(cert *x509.Certificate) string {
+	res := make([]string, 0)
+	for _, eku := range cert.ExtKeyUsage {
+		res = append(res, eku.String())
+	}
+	return strings.Join(res, ", ")
 }
 
 func (v *ExtensionsView) appendSubjectAlternativeNames(cert *x509.Certificate, row *int) {
@@ -77,4 +118,12 @@ func (v *ExtensionsView) appendToTableExtensionKeyOnly(displayName string, cert 
 		name += " [#808080::i]critical"
 	}
 	appendToTableKeyOnly(v.extTable, name, rowCount)
+}
+
+func (v *ExtensionsView) appendToTableExtension(value []string, displayName string, cert *x509.Certificate, oid asn1.ObjectIdentifier, rowCount *int) {
+	name := displayName
+	if certutil.IsExtensionMarkedCritical(cert, oid) {
+		name += " [#808080::i]critical"
+	}
+	appendToTable(v.extTable, value, name, rowCount)
 }
