@@ -66,6 +66,8 @@ func (v *ExtensionsView) update(cert *x509.Certificate) {
 	if len(cert.ExtKeyUsage) > 0 {
 		v.appendToTableExtension([]string{parseExtKeyUsage(cert)}, "Extended Key usage", cert, certutil.OidExtensionKeyUsage, &row)
 	}
+
+	v.appendToTableExtension(cert.CRLDistributionPoints, "CRL Distribution points", cert, certutil.OidExtensionKeyUsage, &row)
 }
 
 func parseKeyUsage(cert *x509.Certificate) string {
