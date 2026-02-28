@@ -1,5 +1,8 @@
 # go-certviewer
 
+## Requirements
+Go 1.24+
+
 ## Install
 ```sh
 go install github.com/mbergz/go-certviewer/cmd/go-certviewer@latest
