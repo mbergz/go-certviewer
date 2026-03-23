@@ -31,6 +31,24 @@ func newExtensionsView() *ExtensionsView {
 	extTable := tview.NewTable()
 	extTable.SetBorder(true).SetTitle("X.509 v3 extensions")
 
+	// Adjust height and width -2 because of border
+	extTable.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		rowOffset, _ := extTable.GetOffset()
+		totalRows := extTable.GetRowCount()
+
+		if rowOffset+height-2 < totalRows {
+			lastRowY := y + height - 2
+			// Clear the line
+			for cx := x + 1; cx < x+width-1; cx++ {
+				screen.SetContent(cx, lastRowY, ' ', nil, tcell.StyleDefault)
+			}
+			tview.Print(screen, "[ ... ▼ Scroll for more ]", x, lastRowY, width, tview.AlignCenter, tcell.ColorLightYellow)
+			return x + 1, y + 1, width - 2, height - 3
+		}
+
+		return x + 1, y + 1, width - 2, height - 2
+	})
+
 	return &ExtensionsView{extTable}
 }
 
@@ -69,27 +87,6 @@ func (v *ExtensionsView) update(cert *x509.Certificate) {
 	}
 
 	v.appendToTableExtension(cert.CRLDistributionPoints, "CRL Distribution points", cert, certutil.OidExtensionKeyUsage, &row)
-
-	// Adjust height and width -2 because of border
-	v.extTable.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		rowOffset, _ := v.extTable.GetOffset()
-		totalRows := v.extTable.GetRowCount()
-
-		if rowOffset+height-2 < totalRows {
-			lastRowY := y + height - 2
-
-			// Clear the line
-			for cx := x + 1; cx < x+width-1; cx++ {
-				screen.SetContent(cx, lastRowY, ' ', nil, tcell.StyleDefault)
-			}
-			tview.Print(screen, "[ ... ▼ Scroll for more ]", x, lastRowY, width, tview.AlignCenter, tcell.ColorLightYellow)
-
-			return x + 1, y + 1, width - 2, height - 3
-		}
-
-		return x + 1, y + 1, width - 2, height - 2
-	})
-
 }
 
 func parseKeyUsage(cert *x509.Certificate) string {
