@@ -34,6 +34,9 @@ func newExtensionsView() *ExtensionsView {
 	// Adjust height and width -2 because of border
 	extTable.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 		rowOffset, _ := extTable.GetOffset()
+		if rowOffset < 0 {
+			rowOffset = 0
+		}
 		totalRows := extTable.GetRowCount()
 
 		if rowOffset+height-2 < totalRows {
