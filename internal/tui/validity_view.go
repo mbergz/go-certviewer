@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -19,9 +20,21 @@ func newValidityView() *ValidityView {
 	validityFlex.SetBorder(true).SetTitle("Validity")
 
 	validityTable := tview.NewTable()
-	validityTable.SetBorderPadding(1, 0, 0, 0)
 
 	validtyTextView := tview.NewTextView().SetTextAlign(tview.AlignCenter).SetDynamicColors(true)
+	validtyTextView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		_, parentFlexY, _, parentFlexHeight := validityFlex.GetInnerRect()
+		if parentFlexHeight < 3 {
+			lastRowY := parentFlexY + 1 + height - 2
+			for cx := x; cx < x+width; cx++ {
+				screen.SetContent(cx, lastRowY, ' ', nil, tcell.StyleDefault)
+			}
+			tview.Print(screen, "[ ▲ Expand screen to view ▼ ]", x, lastRowY, width, tview.AlignCenter, tcell.ColorLightYellow)
+			return x, y, width - 2, height - 2
+		}
+		return x, y, width, height
+	})
+
 	validityFlex.AddItem(validityTable, 0, 5, false).AddItem(validtyTextView, 0, 1, false)
 
 	return &ValidityView{validityFlex, validityTable, validtyTextView}
